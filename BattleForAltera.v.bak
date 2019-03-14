@@ -1,9 +1,8 @@
 module BattleForAltera(
 		CLOCK_50,						//	On Board 50 MHz
-		// inputs
+		// Your inputs and outputs here
         KEY,
 		  LEDR,
-		  SW,
 		// The ports below are for the VGA output.  Do not change.
 		VGA_CLK,   						//	VGA Clock
 		VGA_HS,							//	VGA H_SYNC
@@ -15,10 +14,8 @@ module BattleForAltera(
 		VGA_B   						//	VGA Blue[9:0]
 	);
 
-	
 	input			CLOCK_50;				//	50 MHz
 	input   [3:0]   KEY;
-	input [17:0] SW;
 	output [17:0] LEDR;
 
 	// Declare your inputs and outputs here
@@ -32,10 +29,7 @@ module BattleForAltera(
 	output	[9:0]	VGA_G;	 				//	VGA Green[9:0]
 	output	[9:0]	VGA_B;   				//	VGA Blue[9:0]
     
-	 
-	ram160x8 groundRAM (.address(8'd80), .clock(CLOCK_50), .data(8'd100), .wren(SW[0]), .q(ground_height_at_x));
-	wire [7:0] ground_height_at_x;
-	
+
 	// Create an Instance of a VGA controller - there can be only one!
 	// Define the number of colours as well as the initial background
 	// image file (.MIF) for the controller.
@@ -97,8 +91,7 @@ module BattleForAltera(
 					 DRAW_BLOCK_4      = 6'b010110,
 					 UPDATE_BLOCK_5    = 6'b010111,
 					 DRAW_BLOCK_5      = 6'b011000,
-					 DEAD    		    = 6'b011001,
-					 DRAW_GROUND       = 6'b011010;
+					 DEAD    		    = 6'b011001;
 
 	clock(.clock(CLOCK_50), .clk(frame));
 	 assign LEDR[7] = ((b_y_direction) && (b_y > p_y - 8'd1) && (b_y < p_y + 8'd2) && (b_x >= p_x) && (b_x <= p_x + 8'd8));
@@ -195,11 +188,7 @@ module BattleForAltera(
 						if (~KEY[1] && p_x < 8'd144) p_x = p_x + 1'b1;
 						if (~KEY[2] && p_x > 8'd0) p_x = p_x - 1'b1;
 						if (~KEY[3]) p_y = p_y - 1'b1;
-						// if above ground, lower tank onto ground
-						if (KEY[3] && (p_y < 8'd110 || p_y < ground_height_at_x) ) p_y = p_y + 1'b1;
-						// if below, update tank position onto ground
-						if (p_y > ground_height_at_x && p_x > 8'd80) p_y = (ground_height_at_x);
-						
+						if (KEY[3] && p_y < 8'd110) p_y = p_y + 1'b1;
 						state = DRAW_PADDLE;
 						
 				 end
@@ -330,18 +319,6 @@ module BattleForAltera(
 						y = bl_5_y + draw_counter[3];
 						draw_counter = draw_counter + 1'b1;
 						colour = block_5_colour;
-						end
-					else begin
-						draw_counter= 8'b00000000;
-						state = DRAW_GROUND;
-					end
-				 end
-				 DRAW_GROUND: begin
-					if (draw_counter < 7'b1000000) begin
-						x = 8'd80 + draw_counter[4:0];
-						y = 8'd100 + draw_counter[7:5];
-						draw_counter = draw_counter + 1'b1;
-						colour = 3'b001;
 						end
 					else begin
 						draw_counter= 8'b00000000;
