@@ -15,30 +15,22 @@ module BattleForAltera(
 		VGA_B   						//	VGA Blue[9:0]
 	);
 
-	
-	input			CLOCK_50;				//	50 MHz
-	input   [3:0]   KEY;
+	input CLOCK_50; //	50 MHz
+	input [3:0] KEY;
 	input [17:0] SW;
 	output [17:0] LEDR;
 
-	// Declare your inputs and outputs here
-	// Do not change the following outputs
 	output			VGA_CLK;   				//	VGA Clock
 	output			VGA_HS;					//	VGA H_SYNC
 	output			VGA_VS;					//	VGA V_SYNC
-	output			VGA_BLANK_N;				//	VGA BLANK
+	output			VGA_BLANK_N;			//	VGA BLANK
 	output			VGA_SYNC_N;				//	VGA SYNC
 	output	[9:0]	VGA_R;   				//	VGA Red[9:0]
 	output	[9:0]	VGA_G;	 				//	VGA Green[9:0]
 	output	[9:0]	VGA_B;   				//	VGA Blue[9:0]
     
-	 
-	ram160x8 groundRAM (.address(8'd80), .clock(CLOCK_50), .data(8'd100), .wren(SW[0]), .q(ground_height_at_x));
-	wire [7:0] ground_height_at_x;
-	
-	// Create an Instance of a VGA controller - there can be only one!
-	// Define the number of colours as well as the initial background
-	// image file (.MIF) for the controller.
+	rateDivider (.clock(CLOCK_50), .clk(frame));
+	ram160x8 groundRAM (.address(8'd80), .clock(CLOCK_50), .data(8'd100), .wren(write_enable), .q(ground_height_at_x));
 	vga_adapter VGA(
 			.resetn(1'b1),
 			.clock(CLOCK_50),
@@ -55,219 +47,218 @@ module BattleForAltera(
 			.VGA_BLANK(VGA_BLANK_N),
 			.VGA_SYNC(VGA_SYNC_N),
 			.VGA_CLK(VGA_CLK));
-		defparam VGA.RESOLUTION = "160x120";
-		defparam VGA.MONOCHROME = "FALSE";
-		defparam VGA.BITS_PER_COLOUR_CHANNEL = 1;
-		defparam VGA.BACKGROUND_IMAGE = "black.mif";
+	defparam VGA.RESOLUTION = "160x120";
+	defparam VGA.MONOCHROME = "FALSE";
+	defparam VGA.BITS_PER_COLOUR_CHANNEL = 1;
+	defparam VGA.BACKGROUND_IMAGE = "black.mif";
+	
+	reg [0:0] write_enable;
+	
+	reg [7:0] x, y;
+	reg [17:0] draw_counter;
+	reg [5:0] state;
+	reg [2:0] colour;
+	wire frame;
+	
+	reg [7:0] tank_x, tank_y; // tank positions
+	
+	wire [7:0] ground_height_at_x; // ground height when pulling the x val from RAM
+	
+	////////
+	reg [7:0] b_x, b_y, bl_1_x, bl_1_y, bl_2_x, bl_2_y;
+	reg b_x_direction, b_y_direction = 1'd0;
+	////////
+	reg [2:0] block_1_colour, block_2_colour;
+	////////
 	 
-	 reg [5:0] state;
-	 reg border_initing, paddle_initing, ball_initing, block_initing;
-	 reg [7:0] x, y;
-	 reg [7:0] p_x, p_y, b_x, b_y, bl_1_x, bl_1_y, bl_2_x, bl_2_y, bl_3_x, bl_3_y, bl_4_x, bl_4_y, bl_5_x, bl_5_y, bl_6_x, bl_6_y, bl_7_x, bl_7_y, bl_8_x, bl_8_y, bl_9_x, bl_9_y, bl_10_x, bl_10_y;
-	 reg [2:0] colour;
-	 reg b_x_direction, b_y_direction;
-	 reg [17:0] draw_counter;
-	 reg [2:0] block_1_colour, block_2_colour, block_3_colour, block_4_colour, block_5_colour, block_6_colour, block_7_colour, block_8_colour, block_9_colour, block_10_colour;
-	 wire frame;
-	 
-	 assign LEDR[5:0] = state;
-	 
-	 localparam  RESET_BLACK       = 6'b000000,
-                INIT_PADDLE       = 6'b000001,
-                INIT_BALL         = 6'b000010,
-                INIT_BLOCK_1      = 6'b000011,
-					 INIT_BLOCK_2      = 6'b000100,
-					 INIT_BLOCK_3      = 6'b000101,
-					 INIT_BLOCK_4      = 6'b000110,
-					 INIT_BLOCK_5      = 6'b000111,
-                IDLE              = 6'b001000,
-					 ERASE_PADDLE	    = 6'b001001,
-                UPDATE_PADDLE     = 6'b001010,
-					 DRAW_PADDLE	    = 6'b001011,
-                ERASE_BALL        = 6'b001100,
-					 UPDATE_BALL       = 6'b001101,
-					 DRAW_BALL         = 6'b001110,
-					 UPDATE_BLOCK_1    = 6'b001111,
-					 DRAW_BLOCK_1      = 6'b010000,
-					 UPDATE_BLOCK_2    = 6'b010001,
-					 DRAW_BLOCK_2      = 6'b010010,
-					 UPDATE_BLOCK_3    = 6'b010011,
-					 DRAW_BLOCK_3      = 6'b010100,
-					 UPDATE_BLOCK_4    = 6'b010101,
-					 DRAW_BLOCK_4      = 6'b010110,
-					 UPDATE_BLOCK_5    = 6'b010111,
-					 DRAW_BLOCK_5      = 6'b011000,
-					 DEAD    		    = 6'b011001,
-					 DRAW_GROUND       = 6'b011010;
+	localparam  RESET = 6'd0,
+               INIT_TANK = 6'd1,
+               INIT_BALL = 6'd2,
+               INIT_BLOCK_1 = 6'd3,
+					INIT_BLOCK_2 = 6'd4,
+               WAIT = 6'd5,
+					ERASE_TANK = 6'd6,
+               UPDATE_TANK = 6'd7,
+					DRAW_TANK = 6'd8,
+               ERASE_SHELL = 6'd9,
+					UPDATE_SHELL = 6'd10,
+					DRAW_SHELL = 6'd11,
+					UPDATE_BLOCK_1 = 6'd12,
+					DRAW_BLOCK_1 = 6'd13,
+					UPDATE_BLOCK_2 = 6'd14,
+					DRAW_BLOCK_2 = 6'd15,
+					DEAD = 6'd16;
 
-	clock(.clock(CLOCK_50), .clk(frame));
-	 assign LEDR[7] = ((b_y_direction) && (b_y > p_y - 8'd1) && (b_y < p_y + 8'd2) && (b_x >= p_x) && (b_x <= p_x + 8'd8));
-	 always@(posedge CLOCK_50)
-    begin
-			border_initing = 1'b0;
-			paddle_initing = 1'b0;
-			ball_initing = 1'b0;
-			block_initing = 1'b0;
-			colour = 3'b000;
-			x = 8'b00000000;
-			y = 8'b00000000;
-			if (~KEY[0]) state = RESET_BLACK;
-        case (state)
-		  RESET_BLACK: begin
-			if (draw_counter < 17'b10000000000000000) begin
-						x = draw_counter[7:0];
-						y = draw_counter[16:8];
-						draw_counter = draw_counter + 1'b1;
-						end
-					else begin
-						draw_counter= 8'b00000000;
-						state = INIT_PADDLE;
-					end
-		  end
-    			 INIT_PADDLE: begin
-					 if (draw_counter < 6'b10000) begin
-						p_x = 8'd76;
-						p_y = 8'd110;
-						x = p_x + draw_counter[3:0];
-						y = p_y + draw_counter[4];
-						draw_counter = draw_counter + 1'b1;
-						colour = 3'b111;
-						end
-					else begin
-						draw_counter= 8'b00000000;
-						state = INIT_BALL;
-					end
-				 end
-				 INIT_BALL: begin
-					 b_x = 8'd80;
-					 b_y = 8'd108;
-						x = b_x;
-						y = b_y;
-						colour = 3'b111;
-						state = INIT_BLOCK_1;
-				 end
-				 INIT_BLOCK_1: begin
-					 bl_1_x = 8'd15;
-					 bl_1_y = 8'd30;
-					 block_1_colour = 3'b010;
-						state = INIT_BLOCK_2;
-				 end
-				 INIT_BLOCK_2: begin
-					 bl_2_x = 8'd45;
-					 bl_2_y = 8'd30;
-					 block_2_colour = 3'b010;
-						state = INIT_BLOCK_3;
-				 end
-				 INIT_BLOCK_3: begin
-					 bl_3_x = 8'd75;
-					 bl_3_y = 8'd30;
-					 block_3_colour = 3'b010;
-						state = INIT_BLOCK_4;
-				 end
-				 INIT_BLOCK_4: begin
-					 bl_4_x = 8'd105;
-					 bl_4_y = 8'd30;
-					 block_4_colour = 3'b010;
-						state = INIT_BLOCK_5;
-				 end
-				 INIT_BLOCK_5: begin
-					 bl_5_x = 8'd135;
-					 bl_5_y = 8'd30;
-					 block_5_colour = 3'b010;
-						state = IDLE;
-				 end
-				 IDLE: begin
-				 if (frame)
-					state = ERASE_PADDLE;
-				 end
-				 ERASE_PADDLE: begin
-						if (draw_counter < 6'b100000) begin
-						x = p_x + draw_counter[3:0];
-						y = p_y + draw_counter[4];
-						draw_counter = draw_counter + 1'b1;
-						end
-					else begin
-						draw_counter= 8'b00000000;
-						state = UPDATE_PADDLE;
-					end
-				 end
-				 UPDATE_PADDLE: begin
-						if (~KEY[1] && p_x < 8'd144) p_x = p_x + 1'b1;
-						if (~KEY[2] && p_x > 8'd0) p_x = p_x - 1'b1;
-						if (~KEY[3]) p_y = p_y - 1'b1;
-						// if above ground, lower tank onto ground
-						if (KEY[3] && (p_y < 8'd110 || p_y < ground_height_at_x) ) p_y = p_y + 1'b1;
-						// if below, update tank position onto ground
-						if (p_y > ground_height_at_x && p_x > 8'd80) p_y = (ground_height_at_x);
-						
-						state = DRAW_PADDLE;
-						
-				 end
-				 DRAW_PADDLE: begin
-					if (draw_counter < 6'b100000) begin
-						x = p_x + draw_counter[3:0];
-						y = p_y + draw_counter[4];
-						draw_counter = draw_counter + 1'b1;
-						colour = 3'b111; // updates for the whole block
-						
-						end
-					else begin
-						draw_counter= 8'b00000000;
-						state = ERASE_BALL;
-					end
-				 end
-				 ERASE_BALL: begin
-					x = b_x;
-						y = b_y;
-						state = UPDATE_BALL;
-				 end
-				UPDATE_BALL: begin
-					 if (~b_x_direction) b_x = b_x + 1'b1;
-					 else b_x = b_x - 1'b1;
-					if (b_y_direction) b_y = b_y + 1'b1;
-					 else b_y = b_y - 1'b1;
-					 if ((b_x == 8'd0) || (b_x == 8'd160)) 
-					b_x_direction = ~b_x_direction;
+	always@(posedge CLOCK_50)
+   begin
+		colour = 3'b000; // take out later
+		x = 8'b00000000;
+		y = 8'b00000000;
+		if (~KEY[0]) state = RESET; // reset
+
+		case (state)
+		
+		RESET: begin
+			write_enable = 1'd1; // enable drawing here
+			b_y_direction = 1'd0;
 			
-				if ((b_y == 8'd0) || ((b_y_direction) && (b_y > p_y - 8'd2) && (b_y < p_y + 8'd3) && (b_x >= p_x) && (b_x <= p_x + 8'd15)))
-					b_y_direction = ~b_y_direction;
-					
-					if (b_y >= 8'd120) state = DEAD;
-					else state = DRAW_BALL;
-				 end
-				 DRAW_BALL: begin
-					x = b_x;
-						y = b_y;
-						colour = 3'b111;
-						state = UPDATE_BLOCK_1;
-				 end
-				 UPDATE_BLOCK_1: begin
-					if ((block_1_colour != 3'b000) && (b_y > bl_1_y - 8'd1) && (b_y < bl_1_y + 8'd2) && (b_x >= bl_1_x) && (b_x <= bl_1_x + 8'd7)) begin
-						b_y_direction = ~b_y_direction;
-						block_1_colour = 3'b000;
-					end
-					state = DRAW_BLOCK_1;
-				 end
-				 DRAW_BLOCK_1: begin
-					if (draw_counter < 5'b10000) begin
+			if (draw_counter < 17'b10000000000000000) begin
+				colour = 3'b000;
+				x = draw_counter[7:0];
+				y = draw_counter[16:8];
+				draw_counter = draw_counter + 1'b1;
+			end
+			else begin
+				draw_counter= 8'b00000000;
+				state = INIT_TANK;
+			end
+		end
+		
+    	INIT_TANK: begin // update to draw tank here
+			write_enable = 1'd0; // update later, rn it makes the hard coded ground
+
+			if (draw_counter < 6'b10000) begin
+				tank_x = 8'd76;
+				tank_y = 8'd110;
+				x = tank_x + draw_counter[3:0];
+				y = tank_y + draw_counter[4];
+				draw_counter = draw_counter + 1'b1;
+				colour = 3'b111;
+			end
+			else begin
+				draw_counter= 8'b00000000;
+				state = INIT_BLOCK_1;
+			end
+		end
+
+		INIT_BLOCK_1: begin
+			bl_1_x = 8'd15;
+			bl_1_y = 8'd30;
+			block_1_colour = 3'b010;
+			
+			state = INIT_BLOCK_2;
+		end
+				 
+		INIT_BLOCK_2: begin
+			bl_2_x = 8'd45;
+			bl_2_y = 8'd30;
+			block_2_colour = 3'b010;
+			
+			state = WAIT;
+		end
+
+		WAIT: begin
+			if (frame) state = ERASE_TANK;
+		end
+				 
+		ERASE_TANK: begin
+			if (draw_counter < 6'b100000) begin
+				x = tank_x + draw_counter[3:0];
+				y = tank_y + draw_counter[4];
+				draw_counter = draw_counter + 1'b1;
+			end
+			else begin
+				draw_counter= 8'b00000000;
+				state = UPDATE_TANK;
+			end
+		end
+
+		UPDATE_TANK: begin
+			if (~KEY[1] && tank_x < 8'd144) tank_x = tank_x + 1'b1;
+			if (~KEY[2] && tank_x > 8'd0) tank_x = tank_x - 1'b1;
+			if (~KEY[3]) tank_y = tank_y - 1'b1;
+			// if above ground, lower tank onto ground
+			if (KEY[3] && (tank_y < 8'd110 || tank_y < ground_height_at_x) ) tank_y = tank_y + 1'b1;
+			// if below, update tank position onto ground
+			if (tank_y > ground_height_at_x && tank_x > 8'd80) tank_y = (ground_height_at_x);
+
+			state = DRAW_TANK;
+		end
+
+		DRAW_TANK: begin
+			if (draw_counter < 6'b100000) begin
+				colour = 3'b111; // updates for the whole block
+				x = tank_x + draw_counter[3:0];
+				y = tank_y + draw_counter[4];
+				draw_counter = draw_counter + 1'b1;		
+			end
+			else begin
+				draw_counter= 8'b00000000;
+				state = ERASE_SHELL;
+			end
+		end
+
+		ERASE_SHELL: begin
+			colour = 3'b000;
+			x = b_x;
+			y = b_y;
+			
+			state = UPDATE_SHELL;
+		end
+
+		UPDATE_SHELL: begin // update this to just shoot the projectile
+			if (SW[17] && b_x != 8'd161 && b_y != 6'd121) begin
+		
+				if (~b_x_direction) b_x = b_x + 1'b1;
+				else b_x = b_x - 1'b1;
+				if (b_y_direction) b_y = b_y + 1'b1;
+				else b_y = b_y - 1'b1;
+				
+				if ((b_x == 8'd0) || (b_x == 8'd160)) b_x_direction = ~b_x_direction; // bounce around the board
+				if ((b_y >= 8'd120) || (b_y == 8'd0)) b_y_direction = ~b_y_direction;
+				
+				if ((b_y > tank_y - 8'd2) && (b_y < tank_y + 8'd3) && (b_x >= tank_x) && (b_x <= tank_x + 8'd15)) state = DEAD; // kill if touch tank
+				else state = DRAW_SHELL;
+
+			end
+			else begin
+				b_y_direction = 1'd0; // set shell to go up
+				b_x = tank_x + 2'd4; // update shell position to tank position
+				b_y = tank_y - 1'd1;
+				state = UPDATE_BLOCK_1;
+			end
+		end
+
+		DRAW_SHELL: begin
+			colour = 3'b111;
+			x = b_x;
+			y = b_y;
+			
+			state = UPDATE_BLOCK_1;
+		end
+				 
+		UPDATE_BLOCK_1: begin
+			if ((block_1_colour != 3'b000) && (b_y > bl_1_y - 8'd1) && (b_y < bl_1_y + 8'd2) && (b_x >= bl_1_x) && (b_x <= bl_1_x + 8'd7)) begin
+				b_y_direction = ~b_y_direction;
+				b_x = 8'd161; b_y = 6'd121; // freeze the shell
+				block_1_colour = 3'b000;
+			end
+			state = DRAW_BLOCK_1;
+		end
+				 
+		DRAW_BLOCK_1: begin
+			if (draw_counter < 5'b10000) begin
 						x = bl_1_x + draw_counter[2:0];
 						y = bl_1_y + draw_counter[3];
 						draw_counter = draw_counter + 1'b1;
 						colour = block_1_colour;
-						end
-					else begin
+			end
+			else begin
 						draw_counter= 8'b00000000;
 						state = UPDATE_BLOCK_2;
-					end
-				 end
-				 UPDATE_BLOCK_2: begin
-					if ((block_2_colour != 3'b000) && (b_y > bl_2_y - 8'd1) && (b_y < bl_2_y + 8'd2) && (b_x >= bl_2_x) && (b_x <= bl_2_x + 8'd7)) begin
+			end
+		end
+				 
+		UPDATE_BLOCK_2: begin
+			if ((block_2_colour != 3'b000) && (b_y > bl_2_y - 8'd1) && (b_y < bl_2_y + 8'd2) && (b_x >= bl_2_x) && (b_x <= bl_2_x + 8'd7)) begin
 						b_y_direction = ~b_y_direction;
+						b_x = 8'd161; b_y = 6'd121; //freeze the shell
 						block_2_colour = 3'b000;
-					end
-					state = DRAW_BLOCK_2;
-				 end
-				 DRAW_BLOCK_2: begin
+			end
+			state = DRAW_BLOCK_2;
+		end
+				 
+		DRAW_BLOCK_2: begin
 					if (draw_counter < 5'b10000) begin
 						x = bl_2_x + draw_counter[2:0];
 						y = bl_2_y + draw_counter[3];
@@ -276,95 +267,25 @@ module BattleForAltera(
 						end
 					else begin
 						draw_counter= 8'b00000000;
-						state = UPDATE_BLOCK_3;
+						state = WAIT;
 					end
-				 end
-				 UPDATE_BLOCK_3: begin
-					if ((block_3_colour != 3'b000) && (b_y > bl_3_y - 8'd1) && (b_y < bl_3_y + 8'd2) && (b_x >= bl_3_x) && (b_x <= bl_3_x + 8'd7)) begin
-						b_y_direction = ~b_y_direction;
-						block_3_colour = 3'b000;
-					end
-					state = DRAW_BLOCK_3;
-				 end
-				 DRAW_BLOCK_3: begin
-					if (draw_counter < 5'b10000) begin
-						x = bl_3_x + draw_counter[2:0];
-						y = bl_3_y + draw_counter[3];
-						draw_counter = draw_counter + 1'b1;
-						colour = block_3_colour;
-						end
-					else begin
-						draw_counter= 8'b00000000;
-						state = UPDATE_BLOCK_4;
-					end
-				 end
-				 UPDATE_BLOCK_4: begin
-					if ((block_4_colour != 3'b000) && (b_y > bl_4_y - 8'd1) && (b_y < bl_4_y + 8'd2) && (b_x >= bl_4_x) && (b_x <= bl_4_x + 8'd7)) begin
-						b_y_direction = ~b_y_direction;
-						block_4_colour = 3'b000;
-					end
-					state = DRAW_BLOCK_4;
-				 end
-				 DRAW_BLOCK_4: begin
-					if (draw_counter < 5'b10000) begin
-						x = bl_4_x + draw_counter[2:0];
-						y = bl_4_y + draw_counter[3];
-						draw_counter = draw_counter + 1'b1;
-						colour = block_4_colour;
-						end
-					else begin
-						draw_counter= 8'b00000000;
-						state = UPDATE_BLOCK_5;
-					end
-				 end
-				 UPDATE_BLOCK_5: begin
-					if ((block_5_colour != 3'b000) && (b_y > bl_5_y - 8'd1) && (b_y < bl_5_y + 8'd2) && (b_x >= bl_5_x) && (b_x <= bl_5_x + 8'd7)) begin
-						b_y_direction = ~b_y_direction;
-						block_5_colour = 3'b000;
-					end
-					state = DRAW_BLOCK_5;
-				 end
-				 DRAW_BLOCK_5: begin
-					if (draw_counter < 5'b10000) begin
-						x = bl_5_x + draw_counter[2:0];
-						y = bl_5_y + draw_counter[3];
-						draw_counter = draw_counter + 1'b1;
-						colour = block_5_colour;
-						end
-					else begin
-						draw_counter= 8'b00000000;
-						state = DRAW_GROUND;
-					end
-				 end
-				 DRAW_GROUND: begin
-					if (draw_counter < 7'b1000000) begin
-						x = 8'd80 + draw_counter[4:0];
-						y = 8'd100 + draw_counter[7:5];
-						draw_counter = draw_counter + 1'b1;
-						colour = 3'b001;
-						end
-					else begin
-						draw_counter= 8'b00000000;
-						state = IDLE;
-					end
-				 end
-				 DEAD: begin
+		end
 
-					if (draw_counter < 17'b10000000000000000) begin
-					
-						x = draw_counter[7:0];
-						y = draw_counter[16:8];
-						draw_counter = draw_counter + 1'b1;
-						colour = 3'b100;
-						end
-				end
+		DEAD: begin
+			if (draw_counter < 17'b10000000000000000) begin
+				colour = 3'b100;
+				x = draw_counter[7:0];
+				y = draw_counter[16:8];
+				draw_counter = draw_counter + 1'b1;
+			end
+		end
 
-
-         endcase
-    end
+		endcase // end cases
+		
+	end // end always
 endmodule
 
-module clock(input clock, output clk);
+module rateDivider (input clock, output clk);
 reg [19:0] frame_counter;
 reg frame;
 	always@(posedge clock)
