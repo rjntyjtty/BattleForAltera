@@ -60,26 +60,35 @@ module BattleForAltera(
 	reg [2:0] colour;
 	wire frame;
 	
-	reg [7:0] tank_x, tank_y; // tank positions
+	reg [7:0] tank1_x, tank1_y, tank2_x, tank2_y; // tank positions
 	
 	wire [7:0] ground_height_at_x; // ground height when pulling the x val from RAM
 	
 	////////
 	reg [7:0] b_x, b_y, bl_1_x, bl_1_y, bl_2_x, bl_2_y;
-	reg b_x_direction, b_y_direction = 1'd0;
+	reg b_x_direction, b_y_direction = 1'd0; // ball direction stuff, Max to remove and put his stuff here
 	////////
-	reg [2:0] block_1_colour, block_2_colour;
+	reg [2:0] block_1_colour, block_2_colour; // remove later
 	////////
 	 
 	localparam  RESET = 6'd0,
-               INIT_TANK = 6'd1,
+	
+               INIT_TANK_1 = 6'd1,
+					INIT_TANK_2 = 6'd20,
+					
                INIT_BALL = 6'd2,
                INIT_BLOCK_1 = 6'd3,
 					INIT_BLOCK_2 = 6'd4,
                WAIT = 6'd5,
-					ERASE_TANK = 6'd6,
-               UPDATE_TANK = 6'd7,
-					DRAW_TANK = 6'd8,
+					
+					ERASE_TANK_1 = 6'd6,
+               UPDATE_TANK_1 = 6'd7,
+					DRAW_TANK_1 = 6'd8,
+					
+					ERASE_TANK_2 = 6'd17,
+               UPDATE_TANK_2 = 6'd18,
+					DRAW_TANK_2 = 6'd19,
+					
                ERASE_SHELL = 6'd9,
 					UPDATE_SHELL = 6'd10,
 					DRAW_SHELL = 6'd11,
@@ -91,7 +100,7 @@ module BattleForAltera(
 
 	always@(posedge CLOCK_50)
    begin
-		colour = 3'b000; // take out later
+		colour = 3'b000; // base colour
 		x = 8'b00000000;
 		y = 8'b00000000;
 		if (~KEY[0]) state = RESET; // reset
@@ -110,20 +119,37 @@ module BattleForAltera(
 			end
 			else begin
 				draw_counter= 8'b00000000;
-				state = INIT_TANK;
+				state = INIT_TANK_1;
 			end
 		end
 		
-    	INIT_TANK: begin // update to draw tank here
+    	INIT_TANK_1: begin // update to draw tank here
 			write_enable = 1'd0; // update later, rn it makes the hard coded ground
 
 			if (draw_counter < 6'b10000) begin
-				tank_x = 8'd76;
-				tank_y = 8'd110;
-				x = tank_x + draw_counter[3:0];
-				y = tank_y + draw_counter[4];
+				tank1_x = 8'd5;
+				tank1_y = 8'd110;
+				x = tank1_x + draw_counter[3:0];
+				y = tank1_y + draw_counter[4];
 				draw_counter = draw_counter + 1'b1;
 				colour = 3'b111;
+			end
+			else begin
+				draw_counter= 8'b00000000;
+				state = INIT_TANK_2;
+			end
+		end
+		
+    	INIT_TANK_2: begin // update to draw tank here
+			write_enable = 1'd0; // update later, rn it makes the hard coded ground
+
+			if (draw_counter < 6'b10000) begin
+				tank2_x = 8'd76;
+				tank2_y = 8'd110;
+				x = tank2_x + draw_counter[3:0];
+				y = tank2_y + draw_counter[4];
+				draw_counter = draw_counter + 1'b1;
+				colour = 3'b001;
 			end
 			else begin
 				draw_counter= 8'b00000000;
@@ -132,54 +158,97 @@ module BattleForAltera(
 		end
 
 		INIT_BLOCK_1: begin
-			bl_1_x = 8'd15;
-			bl_1_y = 8'd30;
+			bl_1_x = 8'd100;
+			bl_1_y = 8'd90;
 			block_1_colour = 3'b010;
 			
 			state = INIT_BLOCK_2;
 		end
 				 
 		INIT_BLOCK_2: begin
-			bl_2_x = 8'd45;
-			bl_2_y = 8'd30;
+			bl_2_x = 8'd85;
+			bl_2_y = 8'd45;
 			block_2_colour = 3'b010;
 			
 			state = WAIT;
 		end
 
 		WAIT: begin
-			if (frame) state = ERASE_TANK;
+			if (frame) state = ERASE_TANK_1;
 		end
 				 
-		ERASE_TANK: begin
+		ERASE_TANK_1: begin
 			if (draw_counter < 6'b100000) begin
-				x = tank_x + draw_counter[3:0];
-				y = tank_y + draw_counter[4];
+				x = tank1_x + draw_counter[3:0];
+				y = tank1_y + draw_counter[4];
 				draw_counter = draw_counter + 1'b1;
 			end
 			else begin
 				draw_counter= 8'b00000000;
-				state = UPDATE_TANK;
+				state = ERASE_TANK_2;
+			end
+		end
+		
+		ERASE_TANK_2: begin
+			if (draw_counter < 6'b100000) begin
+				x = tank2_x + draw_counter[3:0];
+				y = tank2_y + draw_counter[4];
+				draw_counter = draw_counter + 1'b1;
+			end
+			else begin
+				draw_counter= 8'b00000000;
+				state = UPDATE_TANK_1;
 			end
 		end
 
-		UPDATE_TANK: begin
-			if (~KEY[1] && tank_x < 8'd144) tank_x = tank_x + 1'b1;
-			if (~KEY[2] && tank_x > 8'd0) tank_x = tank_x - 1'b1;
-			if (~KEY[3]) tank_y = tank_y - 1'b1;
-			// if above ground, lower tank onto ground
-			if (KEY[3] && (tank_y < 8'd110 || tank_y < ground_height_at_x) ) tank_y = tank_y + 1'b1;
-			// if below, update tank position onto ground
-			if (tank_y > ground_height_at_x && tank_x > 8'd80) tank_y = (ground_height_at_x);
+		UPDATE_TANK_1: begin
 
-			state = DRAW_TANK;
+			if (SW[0]) begin
+				if (~KEY[1] && tank1_x < 8'd144) tank1_x = tank1_x + 1'b1;
+				if (~KEY[2] && tank1_x > 8'd0) tank1_x = tank1_x - 1'b1;
+				if (~KEY[3]) tank1_y = tank1_y - 1'b1;
+				// if above ground, lower tank onto ground
+				if (KEY[3] && (tank1_y < 8'd110 || tank1_y < ground_height_at_x) ) tank1_y = tank1_y + 1'b1;
+				// if below, update tank position onto ground
+				if (tank1_y > ground_height_at_x && tank1_x > 8'd80) tank1_y = (ground_height_at_x);
+			end
+			
+			state = UPDATE_TANK_2;
+		end
+		
+		UPDATE_TANK_2: begin
+		
+			if (~SW[0]) begin
+				if (~KEY[1] && tank2_x < 8'd144) tank2_x = tank2_x + 1'b1;
+				if (~KEY[2] && tank2_x > 8'd0) tank2_x = tank2_x - 1'b1;
+				if (~KEY[3]) tank2_y = tank2_y - 1'b1;
+				// if above ground, lower tank onto ground
+				if (KEY[3] && (tank2_y < 8'd110 || tank2_y < ground_height_at_x) ) tank2_y = tank2_y + 1'b1;
+				// if below, update tank position onto ground
+				if (tank2_y > ground_height_at_x && tank2_x > 8'd80) tank2_y = (ground_height_at_x);
+			end
+			
+			state = DRAW_TANK_1;
 		end
 
-		DRAW_TANK: begin
+		DRAW_TANK_1: begin
 			if (draw_counter < 6'b100000) begin
 				colour = 3'b111; // updates for the whole block
-				x = tank_x + draw_counter[3:0];
-				y = tank_y + draw_counter[4];
+				x = tank1_x + draw_counter[3:0];
+				y = tank1_y + draw_counter[4];
+				draw_counter = draw_counter + 1'b1;		
+			end
+			else begin
+				draw_counter= 8'b00000000;
+				state = DRAW_TANK_2;
+			end
+		end
+		
+		DRAW_TANK_2: begin
+			if (draw_counter < 6'b100000) begin
+				colour = 3'b001; // updates for the whole block
+				x = tank2_x + draw_counter[3:0];
+				y = tank2_y + draw_counter[4];
 				draw_counter = draw_counter + 1'b1;		
 			end
 			else begin
@@ -197,7 +266,7 @@ module BattleForAltera(
 		end
 
 		UPDATE_SHELL: begin // update this to just shoot the projectile
-			if (SW[17] && b_x != 8'd161 && b_y != 6'd121) begin
+			if (SW[17]) begin
 		
 				if (~b_x_direction) b_x = b_x + 1'b1;
 				else b_x = b_x - 1'b1;
@@ -207,14 +276,25 @@ module BattleForAltera(
 				if ((b_x == 8'd0) || (b_x == 8'd160)) b_x_direction = ~b_x_direction; // bounce around the board
 				if ((b_y >= 8'd120) || (b_y == 8'd0)) b_y_direction = ~b_y_direction;
 				
-				if ((b_y > tank_y - 8'd2) && (b_y < tank_y + 8'd3) && (b_x >= tank_x) && (b_x <= tank_x + 8'd15)) state = DEAD; // kill if touch tank
+				if ( ((b_y > tank1_y - 8'd2) && (b_y < tank1_y + 8'd3) && (b_x >= tank1_x) && (b_x <= tank1_x + 8'd15)) ||
+			((b_y > tank2_y - 8'd2) && (b_y < tank2_y + 8'd3) && (b_x >= tank2_x) && (b_x <= tank2_x + 8'd15))	) state = DEAD; // kill if touch tank
 				else state = DRAW_SHELL;
 
 			end
 			else begin
 				b_y_direction = 1'd0; // set shell to go up
-				b_x = tank_x + 2'd4; // update shell position to tank position
-				b_y = tank_y - 1'd1;
+				
+				if (SW[0]) begin
+					b_x_direction = 1'd0;
+					b_x = tank1_x + 2'd4; // update shell position to tank position
+					b_y = tank1_y - 1'd1;
+				end
+				else begin
+					b_x_direction = 1'd1;
+					b_x = tank2_x + 2'd4; // update shell position to tank position
+					b_y = tank2_y - 1'd1;
+				end
+				
 				state = UPDATE_BLOCK_1;
 			end
 		end
@@ -230,7 +310,6 @@ module BattleForAltera(
 		UPDATE_BLOCK_1: begin
 			if ((block_1_colour != 3'b000) && (b_y > bl_1_y - 8'd1) && (b_y < bl_1_y + 8'd2) && (b_x >= bl_1_x) && (b_x <= bl_1_x + 8'd7)) begin
 				b_y_direction = ~b_y_direction;
-				b_x = 8'd161; b_y = 6'd121; // freeze the shell
 				block_1_colour = 3'b000;
 			end
 			state = DRAW_BLOCK_1;
@@ -252,7 +331,6 @@ module BattleForAltera(
 		UPDATE_BLOCK_2: begin
 			if ((block_2_colour != 3'b000) && (b_y > bl_2_y - 8'd1) && (b_y < bl_2_y + 8'd2) && (b_x >= bl_2_x) && (b_x <= bl_2_x + 8'd7)) begin
 						b_y_direction = ~b_y_direction;
-						b_x = 8'd161; b_y = 6'd121; //freeze the shell
 						block_2_colour = 3'b000;
 			end
 			state = DRAW_BLOCK_2;
