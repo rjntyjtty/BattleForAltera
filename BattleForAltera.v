@@ -52,7 +52,8 @@ module BattleForAltera(
 	defparam VGA.BITS_PER_COLOUR_CHANNEL = 1;
 	defparam VGA.BACKGROUND_IMAGE = "black.mif";
 	
-	reg [0:0] write_enable;
+	reg [0:0] write_enable; // to initialize gound stuff
+	reg [0:0] fired = 1'd0; // check for if shell is fired
 	
 	reg [7:0] x, y;
 	reg [17:0] draw_counter;
@@ -65,8 +66,8 @@ module BattleForAltera(
 	wire [7:0] ground_height_at_x; // ground height when pulling the x val from RAM
 	
 	////////
-	reg [7:0] b_x, b_y, bl_1_x, bl_1_y, bl_2_x, bl_2_y;
-	reg b_x_direction, b_y_direction = 1'd0; // ball direction stuff, Max to remove and put his stuff here
+	reg [7:0] shell_x, shell_y, bl_1_x, bl_1_y, bl_2_x, bl_2_y;
+	reg shell_x_direction, shell_y_direction = 1'd0; // shell direction stuff, Max to remove and put his stuff here
 	////////
 	reg [2:0] block_1_colour, block_2_colour; // remove later
 	////////
@@ -109,7 +110,7 @@ module BattleForAltera(
 		
 		RESET: begin
 			write_enable = 1'd1; // enable drawing here
-			b_y_direction = 1'd0;
+			shell_y_direction = 1'd0;
 			
 			if (draw_counter < 17'b10000000000000000) begin
 				colour = 3'b000;
@@ -174,7 +175,8 @@ module BattleForAltera(
 		end
 
 		WAIT: begin
-			if (frame) state = ERASE_TANK_1;
+			if (frame && ~fired) state = ERASE_TANK_1;
+			else if (frame) state = ERASE_SHELL;
 		end
 				 
 		ERASE_TANK_1: begin
@@ -259,40 +261,41 @@ module BattleForAltera(
 
 		ERASE_SHELL: begin
 			colour = 3'b000;
-			x = b_x;
-			y = b_y;
+			x = shell_x;
+			y = shell_y;
 			
 			state = UPDATE_SHELL;
 		end
 
 		UPDATE_SHELL: begin // update this to just shoot the projectile
 			if (SW[17]) begin
+				fired = 1'd1;
 		
-				if (~b_x_direction) b_x = b_x + 1'b1;
-				else b_x = b_x - 1'b1;
-				if (b_y_direction) b_y = b_y + 1'b1;
-				else b_y = b_y - 1'b1;
+				if (~shell_x_direction) shell_x = shell_x + 1'b1;
+				else shell_x = shell_x - 1'b1;
+				if (shell_y_direction) shell_y = shell_y + 1'b1;
+				else shell_y = shell_y - 1'b1;
 				
-				if ((b_x == 8'd0) || (b_x == 8'd160)) b_x_direction = ~b_x_direction; // bounce around the board
-				if ((b_y >= 8'd120) || (b_y == 8'd0)) b_y_direction = ~b_y_direction;
+				if ((shell_x == 8'd0) || (shell_x == 8'd160)) shell_x_direction = ~shell_x_direction; // bounce around the board
+				if ((shell_y >= 8'd120) || (shell_y == 8'd0)) shell_y_direction = ~shell_y_direction;
 				
-				if ( ((b_y > tank1_y - 8'd2) && (b_y < tank1_y + 8'd3) && (b_x >= tank1_x) && (b_x <= tank1_x + 8'd15)) ||
-			((b_y > tank2_y - 8'd2) && (b_y < tank2_y + 8'd3) && (b_x >= tank2_x) && (b_x <= tank2_x + 8'd15))	) state = DEAD; // kill if touch tank
+				if ( ((shell_y > tank1_y - 8'd2) && (shell_y < tank1_y + 8'd3) && (shell_x >= tank1_x) && (shell_x <= tank1_x + 8'd15)) ||
+			((shell_y > tank2_y - 8'd2) && (shell_y < tank2_y + 8'd3) && (shell_x >= tank2_x) && (shell_x <= tank2_x + 8'd15))	) state = DEAD; // kill if touch tank
 				else state = DRAW_SHELL;
 
 			end
 			else begin
-				b_y_direction = 1'd0; // set shell to go up
+				shell_y_direction = 1'd0; // set shell to go up
 				
 				if (SW[0]) begin
-					b_x_direction = 1'd0;
-					b_x = tank1_x + 2'd4; // update shell position to tank position
-					b_y = tank1_y - 1'd1;
+					shell_x_direction = 1'd0;
+					shell_x = tank1_x + 2'd4; // update shell position to tank position
+					shell_y = tank1_y - 1'd1;
 				end
 				else begin
-					b_x_direction = 1'd1;
-					b_x = tank2_x + 2'd4; // update shell position to tank position
-					b_y = tank2_y - 1'd1;
+					shell_x_direction = 1'd1;
+					shell_x = tank2_x + 2'd4; // update shell position to tank position
+					shell_y = tank2_y - 1'd1;
 				end
 				
 				state = UPDATE_BLOCK_1;
@@ -301,15 +304,15 @@ module BattleForAltera(
 
 		DRAW_SHELL: begin
 			colour = 3'b111;
-			x = b_x;
-			y = b_y;
+			x = shell_x;
+			y = shell_y;
 			
 			state = UPDATE_BLOCK_1;
 		end
 				 
 		UPDATE_BLOCK_1: begin
-			if ((block_1_colour != 3'b000) && (b_y > bl_1_y - 8'd1) && (b_y < bl_1_y + 8'd2) && (b_x >= bl_1_x) && (b_x <= bl_1_x + 8'd7)) begin
-				b_y_direction = ~b_y_direction;
+			if ((block_1_colour != 3'b000) && (shell_y > bl_1_y - 8'd1) && (shell_y < bl_1_y + 8'd2) && (shell_x >= bl_1_x) && (shell_x <= bl_1_x + 8'd7)) begin
+				shell_y_direction = ~shell_y_direction;
 				block_1_colour = 3'b000;
 			end
 			state = DRAW_BLOCK_1;
@@ -329,8 +332,8 @@ module BattleForAltera(
 		end
 				 
 		UPDATE_BLOCK_2: begin
-			if ((block_2_colour != 3'b000) && (b_y > bl_2_y - 8'd1) && (b_y < bl_2_y + 8'd2) && (b_x >= bl_2_x) && (b_x <= bl_2_x + 8'd7)) begin
-						b_y_direction = ~b_y_direction;
+			if ((block_2_colour != 3'b000) && (shell_y > bl_2_y - 8'd1) && (shell_y < bl_2_y + 8'd2) && (shell_x >= bl_2_x) && (shell_x <= bl_2_x + 8'd7)) begin
+						shell_y_direction = ~shell_y_direction;
 						block_2_colour = 3'b000;
 			end
 			state = DRAW_BLOCK_2;
