@@ -659,32 +659,37 @@ module BattleForAltera(
 	v_c[13] = 120;
 	 
 	localparam  RESET = 6'd0,
-	                INIT_MAP = 6'd21
-	
-               INIT_TANK_1 = 6'd1,
-					INIT_TANK_2 = 6'd20,
-					
-               INIT_BALL = 6'd2,
-               INIT_BLOCK_1 = 6'd3,
-					INIT_BLOCK_2 = 6'd4,
-               WAIT = 6'd5,
-					
-					ERASE_TANK_1 = 6'd6,
-               UPDATE_TANK_1 = 6'd7,
-					DRAW_TANK_1 = 6'd8,
-					
-					ERASE_TANK_2 = 6'd17,
-               UPDATE_TANK_2 = 6'd18,
-					DRAW_TANK_2 = 6'd19,
-					
-               ERASE_SHELL = 6'd9,
-					UPDATE_SHELL = 6'd10,
-					DRAW_SHELL = 6'd11,
-					UPDATE_BLOCK_1 = 6'd12,
-					DRAW_BLOCK_1 = 6'd13,
-					UPDATE_BLOCK_2 = 6'd14,
-					DRAW_BLOCK_2 = 6'd15,
-					DEAD = 6'd16;
+	            INIT_MAP = 6'd21,
+			 INIT_TANK_1 = 6'd1,
+			 INIT_TANK_2 = 6'd20,
+			 INIT_BALL = 6'd2,
+			 INIT_BLOCK_1 = 6'd3,
+			 INIT_BLOCK_2 = 6'd4,
+
+			 WAIT = 6'd5,
+
+			 ERASE_TANK_1 = 6'd6,
+               	 UPDATE_TANK_1 = 6'd7,
+			 DRAW_TANK_1 = 6'd8,
+			 ERASE_TANK_2 = 6'd17,
+             	 UPDATE_TANK_2 = 6'd18,
+			 DRAW_TANK_2 = 6'd19,
+
+			 SHELL_FIRED = 6'd22,
+			 ERASE_SHELL = 6'd9,
+			 UPDATE_SHELL = 6'd10,
+			 CHECK_SHELL = 6'd23,
+			 DRAW_SHELL = 6'd11,
+			 HIT_T1 = 6'd24,
+			 HIT_T2 = 6'd25,
+			 MISS = 6'd26,
+
+			 UPDATE_BLOCK_1 = 6'd12,
+			 DRAW_BLOCK_1 = 6'd13,
+			 UPDATE_BLOCK_2 = 6'd14,
+			 DRAW_BLOCK_2 = 6'd15,
+
+			 DEAD = 6'd16;
 
 	always@(posedge CLOCK_50)
     begin
@@ -1008,13 +1013,14 @@ module BattleForAltera(
 
 		CHECK_SHELL: begin
 			if(proj_x < 0) || (proj_x > 160) || (proj_y > 120) state = miss;
-			if(proj_y > /*RAM get at curr proj_x*/) state = miss;
+			x_coordinate = proj_x;
+			if(proj_y > ground_height_at_x) state = miss;
 			if(proj_y < 0) begin
 				i = i + 5;
 				state = UPDATE_SHELL;
 			end
-			if(tank1_x <= proj_x <= tank1_x + 5) && (proj_y > tank1_y - 3) state = HIT_T1;
-			if(tank2_x <= proj_x <= tank2_x + 5) && (proj_y > tank2_y - 3) state = HIT_T2;
+			if(tank1_x <= proj_x <= tank1_x + 5) && (proj_y > tank1_y + 3) state = HIT_T1;
+			if(tank2_x <= proj_x <= tank2_x + 5) && (proj_y > tank2_y + 3) state = HIT_T2;
 			state = DRAW_SHELL;
 		end
 
