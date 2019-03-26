@@ -37,7 +37,7 @@ module BattleForAltera(
 			.resetn(1'b1),
 			.clock(CLOCK_50),
 			.colour(colour),
-			.x(x),
+			.x(x),zz
 			.y(y),
 			.plot(1'b1),
 			// Signals for the DAC to drive the monitor.
@@ -326,24 +326,142 @@ module BattleForAltera(
 		end
 
 		DRAW_TANK_1: begin
-			if (draw_counter < 6'b100000) begin
-				colour = 3'b111; // updates for the whole block
-				x = tank1_x + draw_counter[3:0];
-				y = tank1_y + draw_counter[4];
-				draw_counter = draw_counter + 1'b1;		
+		if (draw_counter < 7'b1000000) begin
+			if (draw_counter[2:0] < 3'b101)
+				x = tank1_x + draw_counter[2:0];
+			else
+				x = tank1_x + 1'b1;
+			if (draw_counter[5:3] < 3'b100)
+				y = tank1_y + draw_counter[5:3];
+			else
+				y = tank1_y + 1'b1;
+			draw_counter = draw_counter + 1'b1;
+			 // updates for the whole block
+			case (draw_counter)
+				6'b111111: begin //Draw main shooter block
+					x = tank1_x + 3'b100;
+					y = tank1_y - 1'b1;
+					colour = 3'b010;
+				end
+				6'b111110: begin //Draw (moved) shooter block
+					if (tank_1_barrel == 2'b00) begin
+						x = tank1_x + 3'b101;
+						y = tank1_y - 1'b1;
+						colour = 3'b010;
+					end
+					else if (tank_1_barrel == 2'b01 | tank_1_barrel == 2'b10) begin
+						x = tank1_x + 3'b101;
+						y = tank1_y - 2'b10;
+						colour = 3'b010;
+					end
+					else begin
+						x = tank1_x + 3'b100;
+						y = tank1_y - 2'b10;
+						colour = 3'b010;
+					end
+				end
+				6'b000001: begin
+					colour = 3'b000;
+				end
+				6'b000011: begin
+					colour = 3'b111;
+				end
+				6'b000100: begin
+					colour = 3'b111;
+				end
+				6'b000101: begin
+					colour = 3'b000;
+				end
+				6'b011001: begin
+					colour = 3'b101;
+				end
+				6'b011011: begin
+					colour = 3'b101;
+				end
+				6'b011101: begin
+					colour = 3'b101;
+				end
+				6'b011101: begin
+					colour = 3'b101;
+				end
+				default: begin
+					colour = 3'b010;
+				end
+				
+			endcase
+			
 			end
 			else begin
 				draw_counter= 8'b00000000;
-				state = UPDATE_TANK_2;
+				state = DRAW_TANK_2;
 			end
 		end
 		
 		DRAW_TANK_2: begin
-			if (draw_counter < 6'b100000) begin
-				colour = 3'b001; // updates for the whole block
-				x = tank2_x + draw_counter[3:0];
-				y = tank2_y + draw_counter[4];
-				draw_counter = draw_counter + 1'b1;		
+		if (draw_counter < 7'b1000000) begin
+			if (draw_counter[2:0] < 3'b101)
+				x = tank2_x + draw_counter[2:0];
+			else
+				x = tank2_x + 1'b1;
+			if (draw_counter[5:3] < 3'b100)
+				y = tank2_y + draw_counter[5:3];
+			else
+				y = tank2_y + 1'b1;
+			draw_counter = draw_counter + 1'b1;
+			 // updates for the whole block
+			case (draw_counter)
+				6'b111111: begin //Draw main shooter block
+					x = tank2_x;
+					y = tank2_y - 1'b1;
+					colour = 3'b010;
+				end
+				6'b111110: begin //Draw (moved) shooter block
+					if (tank_2_barrel == 2'b00) begin
+						x = tank2_x - 1'b1;
+						y = tank2_y - 1'b1;
+						colour = 3'b010;
+					end
+					else if (tank_2_barrel == 2'b01 | tank_2_barrel == 2'b10) begin
+						x = tank2_x - 1'b1;
+						y = tank2_y - 2'b10;
+						colour = 3'b010;
+					end
+					else begin
+						x = tank2_x;
+						y = tank2_y - 2'b10;
+						colour = 3'b010;
+					end
+				end
+				6'b000001: begin
+					colour = 3'b000;
+				end
+				6'b000010: begin
+					colour = 3'b111;
+				end
+				6'b000011: begin
+					colour = 3'b111;
+				end
+				6'b000101: begin
+					colour = 3'b000;
+				end
+				6'b011001: begin
+					colour = 3'b101;
+				end
+				6'b011011: begin
+					colour = 3'b101;
+				end
+				6'b011101: begin
+					colour = 3'b101;
+				end
+				6'b011101: begin
+					colour = 3'b101;
+				end
+				default: begin
+					colour = 3'b010;
+				end
+				
+			endcase
+			
 			end
 			else begin
 				draw_counter= 8'b00000000;
