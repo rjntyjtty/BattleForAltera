@@ -1673,8 +1673,14 @@ module BattleForAltera(
 
 		ERASE_SHELL: begin
 			colour = 3'b000;
+			if(firing) begin
+			x = proj_x;
+			y = proj_y;
+			end
+			else begin
 			x = shell_x;
 			y = shell_y;
+			end
 			
 			state = UPDATE_SHELL;
 		end
@@ -1712,14 +1718,15 @@ module BattleForAltera(
 
 		CHECK_SHELL: begin
 			if((proj_x < 0) || (proj_x > 160) || (proj_y > 120)) state = MISS;
+			if((tank1_x <= proj_x <= tank1_x + 5) && (proj_y > tank1_y + 3)) state = HIT_T1;
+			if((tank2_x <= proj_x <= tank2_x + 5) && (proj_y > tank2_y + 3)) state = HIT_T2;
 			x_coordinate = proj_x;
 			if(proj_y > ground_height_at_x) state = MISS;
 			if(proj_y < 0) begin
 				i = i + 5;
 				state = UPDATE_SHELL;
 			end
-			if((tank1_x <= proj_x <= tank1_x + 5) && (proj_y > tank1_y + 3)) state = HIT_T1;
-			if((tank2_x <= proj_x <= tank2_x + 5) && (proj_y > tank2_y + 3)) state = HIT_T2;
+
 			state = DRAW_SHELL;
 		end
 
