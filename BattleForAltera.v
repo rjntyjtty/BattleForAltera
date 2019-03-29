@@ -38,7 +38,9 @@ module BattleForAltera(
 	output	[9:0]	VGA_R;   				//	VGA Red[9:0]
 	output	[9:0]	VGA_G;	 				//	VGA Green[9:0]
 	output	[9:0]	VGA_B;   				//	VGA Blue[9:0]
-    
+   
+	reg [7:0] x_coordinate, y_coordinate;
+	
 	rateDivider ehhhh(.clock(CLOCK_50), .clk(frame));
 	slowRateDivider testDivider (.clock(CLOCK_50), .clk(slow_frame));
 	hex_display hd_H1(.IN(p1_H), .OUT(HEX6));
@@ -46,7 +48,7 @@ module BattleForAltera(
 	hex_display hd_ones(.IN(ang_HEX[3:0]), .OUT(HEX0));
 	hex_display hd_tens(.IN(ang_HEX[7:4]), .OUT(HEX1));
 	hex_display hd_huns(.IN(ang_HEX[11:8]), .OUT(HEX2));
-	ram160x8 groundRAM (.address(8'd80), .clock(CLOCK_50), .data(8'd100), .wren(write_enable), .q(ground_height_at_x));
+	ram160x8 groundRAM (.address(x_coordinate), .clock(CLOCK_50), .data(y_coordinate), .wren(write_enable), .q(ground_height_at_x));
 	vga_adapter VGA(
 			.resetn(1'b1),
 			.clock(CLOCK_50),
@@ -73,9 +75,6 @@ module BattleForAltera(
 	reg [3:0] jump_capacity = 4'd10;
 	reg [4:0] fuel = 5'd30;
 	reg pTurn = 1'b0;
-	reg [11:0] tester = 1'b1;
-	
-	assign LEDR [11:0] = tester;
 	
 	wire [1:0] tank_1_barrel = SW[14:13];
 	wire [1:0] tank_2_barrel = SW[16:15];
@@ -103,11 +102,6 @@ module BattleForAltera(
 	reg spec;
 	reg signed [6:0] i;
 	reg [1:0] p1_H, p2_H = 2'd3;
-	reg [7:0] bl_1_x, bl_1_y, bl_2_x, bl_2_y;
-	reg shell_x_direction, shell_y_direction = 1'd0; // shell direction stuff, Max to remove and put his stuff here
-	////////
-	reg [2:0] block_1_colour, block_2_colour; // remove later
-	////////
 
 	wire signed [0:10] a0 [31:0], a5 [31:0], a10 [31:0], a15 [31:0], a20 [31:0], a25 [31:0], a30 [31:0], a35 [31:0], a40 [31:0], a45 [31:0], a50 [31:0], a55 [31:0], a60 [31:0], a65 [31:0], a70 [31:0], a75 [31:0];
 	wire signed [0:7] a80 [13:0], a85 [13:0], a90 [13:0], v_c [13:0];
@@ -682,39 +676,31 @@ module BattleForAltera(
 	assign v_c[13] = 120;
 	 
 	localparam  RESET = 6'd0,
-	            INIT_MAP = 6'd21,
-					DRAW_MAP = 6'd27,
-					INIT_TANK_1 = 6'd1,
-					INIT_TANK_2 = 6'd20,
-					INIT_BALL = 6'd2,
-					INIT_BLOCK_1 = 6'd3,
-					INIT_BLOCK_2 = 6'd4,
+	            INIT_MAP = 6'd1,
+					DRAW_MAP = 6'd2,
+					INIT_TANK_1 = 6'd3,
+					INIT_TANK_2 = 6'd4,
 
 					WAIT = 6'd5,
 
 					ERASE_TANK_1 = 6'd6,
                UPDATE_TANK_1 = 6'd7,
 					DRAW_TANK_1 = 6'd8,
-					ERASE_TANK_2 = 6'd17,
-             	UPDATE_TANK_2 = 6'd18,
-					DRAW_TANK_2 = 6'd19,
+					ERASE_TANK_2 = 6'd9,
+             	UPDATE_TANK_2 = 6'd10,
+					DRAW_TANK_2 = 6'd11,
 
-					SHELL_FIRED = 6'd22,
-					ERASE_SHELL = 6'd9,
-					UPDATE_SHELL = 6'd10,
-					CHECK_SHELL = 6'd23,
-					DRAW_SHELL = 6'd11,
-					HIT_T1 = 6'd24,
-					HIT_T2 = 6'd25,
-					MISS = 6'd26,
+					SHELL_FIRED = 6'd12,
+					ERASE_SHELL = 6'd13,
+					UPDATE_SHELL = 6'd14,
+					CHECK_SHELL = 6'd15,
+					DRAW_SHELL = 6'd16,
+					HIT_T1 = 6'd17,
+					HIT_T2 = 6'd18,
+					MISS = 6'd19,
 
-					UPDATE_BLOCK_1 = 6'd12,
-					DRAW_BLOCK_1 = 6'd13,
-					UPDATE_BLOCK_2 = 6'd14,
-					DRAW_BLOCK_2 = 6'd15,
-
-					DEAD1 = 6'd16,
-					DEAD2 = 6'd28;
+					DEAD1 = 6'd20,
+					DEAD2 = 6'd21;
 
 	always@(posedge CLOCK_50)
    begin
@@ -726,12 +712,10 @@ module BattleForAltera(
 		case (state)
 		RESET: begin
 			write_enable = 1'd1; // enable drawing here
-			shell_y_direction = 1'd0;
 			firing = 1'b0;
 			p1_H = 2'd3;
 			p2_H = 2'd3;
 			pTurn = 1'b0;
-			tester = 1'b1;
 			// fired = 1'd0;
 			
 			if (draw_counter < 17'b10000000000000000) begin
@@ -742,38 +726,64 @@ module BattleForAltera(
 			end
 			else begin
 				draw_counter= 8'b00000000;
-				state = INIT_TANK_1;
+				state = INIT_MAP;
 			end
 		end
 		
+		INIT_MAP: begin
+		   write_enable = 1'd1;
+			
+			
+			if (draw_counter < 17'b10000000000000000) begin
+				x_coordinate = draw_counter[7:0];
+			    // 1st Map: 3 rectangular mountains 15 pixels tall, each spaced 20 pixels apart
+			    if ((x_coordinate >= 8'd20 && x_coordinate < 8'd40) || (x_coordinate >= 8'd60 && x_coordinate < 8'd80) || (x_coordinate >= 8'd100 && x_coordinate < 8'd120)) y_coordinate = (8'd115 - 8'd15);
+			    if (x_coordinate >= 8'd0 && x_coordinate < 8'd20) y_coordinate = 8'd75;
+				 if (x_coordinate >= 8'd40 && x_coordinate < 8'd80) y_coordinate = 8'd90;
+				 if (x_coordinate >= 8'd80 && x_coordinate < 8'd100) y_coordinate = 8'd115;
+				 if (x_coordinate >= 8'd120 && x_coordinate < 8'd140) y_coordinate = 8'd105;
+				 if (x_coordinate >= 8'd140 && x_coordinate < 8'd160) y_coordinate = 8'd85;
+				
+				draw_counter = draw_counter + 1'd1;
+			end
+			else begin
+		        write_enable = 1'd0; // turn off write_enabe so we can call values later
+				  x_coordinate = 8'd0;
+				  draw_counter = 8'd120;
+		        state = DRAW_MAP; //next, draw map on screen
+		    end
+		end
+		
+		DRAW_MAP: begin
+		    if (x_coordinate < 8'd160) begin
+				  colour = 3'b111;
+				  draw_counter = draw_counter - 1'b1;
+				  x = x_coordinate;
+				  y = draw_counter[7:0];
+				  if (draw_counter < ground_height_at_x) begin
+					x_coordinate = x_coordinate + 1'b1;
+					draw_counter= 8'd120;
+				  end
+
+				  
+		    end
+		    else begin
+		        x_coordinate = 8'd0;
+				  draw_counter= 8'b00000000;
+		        state = INIT_TANK_1;
+		    end
+		end
+		
     	INIT_TANK_1: begin // update to draw tank here
-			write_enable = 1'd0; // update later, rn it makes the hard coded ground
 			tank1_x = 8'd5;
-			tank1_y = 8'd110;
+			tank1_y = 8'd10;
 			draw_counter= 8'b00000000;
 			state = INIT_TANK_2;
 		end
 		
     	INIT_TANK_2: begin // update to draw tank here
-			write_enable = 1'd0; // update later, rn it makes the hard coded ground
-			tank2_x = 8'd76;
-			tank2_y = 8'd110;
-			state = INIT_BLOCK_1;
-		end
-
-		INIT_BLOCK_1: begin
-			bl_1_x = 8'd100;
-			bl_1_y = 8'd90;
-			block_1_colour = 3'b010;
-			
-			state = INIT_BLOCK_2;
-		end
-				 
-		INIT_BLOCK_2: begin
-			bl_2_x = 8'd85;
-			bl_2_y = 8'd45;
-			block_2_colour = 3'b010;
-			
+			tank2_x = 8'd150;
+			tank2_y = 8'd10;
 			state = WAIT;
 		end
 
@@ -784,8 +794,10 @@ module BattleForAltera(
 				 
 		ERASE_TANK_1: begin
 			if (draw_counter < 9'b100000000) begin
+				if (draw_counter[3:0] <= 4'd5)
 				x = tank1_x + draw_counter[3:0];
-				y = tank1_y + draw_counter[8:4] - 2'd2;
+				if (draw_counter[8:4] <= 4'd4)
+				y = tank1_y + draw_counter[8:4] - 1'b1;
 				draw_counter = draw_counter + 1'b1;
 			end
 			else begin
@@ -796,8 +808,10 @@ module BattleForAltera(
 		
 		ERASE_TANK_2: begin
 			if (draw_counter < 9'b100000000) begin
-				x = tank2_x + draw_counter[3:0] - 2'd2;
-				y = tank2_y + draw_counter[8:4] - 2'd2;
+				if (draw_counter[3:0] <= 4'd5)
+				x = tank2_x + draw_counter[3:0];
+				if (draw_counter[8:4] <= 4'd4)
+				y = tank2_y + draw_counter[8:4] - 1'b1;
 				draw_counter = draw_counter + 1'b1;
 			end
 			else begin
@@ -807,43 +821,72 @@ module BattleForAltera(
 		end
 
 		UPDATE_TANK_1: begin
-
-			if (~pTurn) begin
-				if (~KEY[1] && tank1_x < 8'd144) tank1_x = tank1_x + 1'b1;
-				if (~KEY[2] && tank1_x > 8'd0) tank1_x = tank1_x - 1'b1;
-				if (~KEY[3]) begin
+			if (~pTurn && fuel != 5'd0) begin
+			   x_coordinate = tank1_x;
+			   // tank is standing on solid ground: reset jump so can jump top full capacity again
+				if (KEY[3] && tank1_y == (ground_height_at_x- 3'd5)) jump_capacity = 4'd20;
+				    
+				// tank falling after jump or just walked off cliff edge: while above ground, lower tank onto ground
+				else if ((KEY[3] || jump_capacity == 4'd0) && tank1_y < (ground_height_at_x- 3'd5)) begin
+				    jump_capacity = 4'd0; // cannot jump while falling, but can move left and right
+				    tank1_y = tank1_y + 1'b1;
+				end
+			    
+				// tank moves 1 pixel right if next ground is same level or lower
+				if (~KEY[1] && tank1_x < 8'd154) begin
+				    x_coordinate = tank1_x + 8'd8;
+					 if ((tank1_y <= (ground_height_at_x- 3'd5))) tank1_x = tank1_x + 1'd1; // move tank right if no ground
+				end
+				// tank moves 1 pixel left if next ground is same level or lower
+				if (~KEY[2] && tank1_x > 8'd0) begin
+				    x_coordinate = tank1_x - 1'b1;
+					 if (tank1_y <= (ground_height_at_x- 3'd5)) tank1_x = tank1_x - 1'd1; // move tank left if no ground
+				end
+				// tank is in process of jumping up
+				if (~KEY[3] && jump_capacity > 4'd0) begin
 					tank1_y = tank1_y - 1'b1;
-					gravity = 10'd1;
+					jump_capacity = jump_capacity- 1'b1;
+					fuel = fuel - 1'b1;
 				end
-				// if above ground, lower tank onto ground
-				if (KEY[3] && (tank1_y < 8'd110 || tank1_y < ground_height_at_x) ) begin
-					tank1_y = tank1_y + gravity;
-					accelerate = accelerate + 1'b1;
-					if (accelerate == 3'b111) begin
-						gravity = gravity + 1'b1;
-						accelerate = 3'd0;
-					end
-				end
-				// if below, update tank position onto ground
-				if (tank1_y > ground_height_at_x && tank1_x > 8'd80) begin
-					tank1_y = (ground_height_at_x);
-					gravity = 10'd1;
-				end
+				
+				// tank was at bottom of screen, then walked under the floating ground: teleport up 
+				// this is super stupid so delete it
+				// if (tank1_y > (ground_height_at_x - 3'd5) && tank1_x > 8'd80) tank1_y = ((ground_height_at_x - 3'd5));
 			end
 			
-			state = UPDATE_TANK_2;
+			state = UPDATE_TANK_2; // now update tank's position on the screen
 		end
 		
 		UPDATE_TANK_2: begin
-		
-			if (pTurn) begin
-				if (~KEY[1] && tank2_x < 8'd144) tank2_x = tank2_x + 1'b1;
-				if (~KEY[2] && tank2_x > 8'd0) tank2_x = tank2_x - 1'b1;
-				if (~KEY[3]) tank2_y = tank2_y - 1'b1;
-				// if above ground, lower tank onto ground
-				if (KEY[3] && (tank2_y < 8'd110 || tank2_y < ground_height_at_x) ) tank2_y = tank2_y + 1'b1;
-				// if below, update tank position onto ground
-				if (tank2_y > ground_height_at_x && tank2_x > 8'd80) tank2_y = (ground_height_at_x);
+			if (pTurn && fuel != 5'd0) begin
+				x_coordinate = tank2_x;
+			    // tank is standing on solid ground: reset jump so can jump top full capacity again
+				if (KEY[3] && tank2_y == ground_height_at_x) jump_capacity = 4'd20;
+				    
+				// tank falling after jump or just walked off cliff edge: while above ground, lower tank onto ground
+				else if ((KEY[3] || jump_capacity == 4'd0) && tank2_y < ground_height_at_x) begin
+				    jump_capacity = 4'd0; // cannot jump while falling, but can move left and right
+				    tank2_y = tank2_y + 1'b1;
+				end
+			    
+				// tank moves 1 pixel right if next ground is same level or lower
+				if (~KEY[1] && tank2_x < 8'd160) begin
+				    x_coordinate = tank2_x + 3'd5;
+					 tank2_x = tank2_x + 1'b1;
+					 if (tank2_y > ground_height_at_x) tank2_x = tank2_x - 1'b1; // stops tank from moving
+				end
+				// tank moves 1 pixel left if next ground is same level or lower
+				if (~KEY[2] && tank2_x > 8'd0) begin
+				    x_coordinate = tank2_x - 1'b1;
+					 tank2_x = tank2_x - 1'b1;
+					 if (tank2_y > ground_height_at_x) tank2_x = tank2_x + 1'b1; // stops tank from moving
+				end
+				// tank is in process of jumping up
+				if (~KEY[3] && jump_capacity > 4'd0) begin
+					tank2_y = tank2_y - 1'b1;
+					jump_capacity = jump_capacity- 1'b1;
+					fuel = fuel - 1'b1;
+				end
 			end
 			
 			state = DRAW_TANK_1;
@@ -1037,7 +1080,7 @@ module BattleForAltera(
 			if(~KEY[0]) begin
 				angle = SW[5:0];
 					case (angle) // Please check this is what is controlling the case - MAX
-						6'b000000, 6'b100011: begin
+						6'b000000, 6'b100100: begin
 														para[0] = a0[0];
 														para[1] = a0[1];
 														para[2] = a0[2];
@@ -1071,7 +1114,7 @@ module BattleForAltera(
 														para[30] = a0[30];
 														para[31] = a0[31];
 													 end
-						6'b000001, 6'b100001: begin 
+						6'b000001, 6'b100011: begin 
 														para[0] = a5[0];
 														para[1] = a5[1];
 														para[2] = a5[2];
@@ -1623,7 +1666,7 @@ module BattleForAltera(
 										para[6] = a90[6];
 										para[7] = a90[7];
 										para[8] = a90[8];
-										para[9] = a90[9];
+										para[9] = a90[9];	
 										para[10] = a90[10];
 										para[11] = a90[11];
 										para[12] = a90[12];
@@ -1637,12 +1680,13 @@ module BattleForAltera(
 				else dir = 1;
 				if(((20 >= angle) && (angle >= 16)) || (angle > 36)) spec = 1'b1;
 				else spec = 1'b0;
+				state = UPDATE_SHELL;
 			end
-			state = ERASE_SHELL;
+			else state = ERASE_SHELL;
 			
 		end
 
-ERASE_SHELL: begin
+		ERASE_SHELL: begin
 			colour = 3'b000;
 			if(firing) begin
 			x = proj_x;
@@ -1670,34 +1714,30 @@ ERASE_SHELL: begin
 				state = CHECK_SHELL;
 			end
 			else begin
-				shell_y_direction = 1'd0; // set shell to go up
-				
 				if (~pTurn) begin
-					shell_x_direction = 1'd0;
 					shell_x = tank1_x + 2'd4; // update shell position to tank position
 					shell_y = tank1_y - 1'd1;
 				end
 				else begin
-					shell_x_direction = 1'd1;
 					shell_x = tank2_x + 2'd4; // update shell position to tank position
 					shell_y = tank2_y - 1'd1;
 				end
 				
-				state = UPDATE_BLOCK_1;
+				state = WAIT;
 			end
 		end
 
 		CHECK_SHELL: begin
-			if((proj_x < 0) || (proj_x > 160) || (proj_y > 120)) state = MISS;
-			else if((tank1_x <= proj_x) && (proj_x <= tank1_x + 5) && (120 >= proj_y) && (proj_y >= tank1_y)) state = HIT_T1;
-			else if((tank2_x <= proj_x) && (proj_x <= tank2_x + 5) && (120 >= proj_y) && (proj_y >= tank2_y)) state = HIT_T2;
-			//x_coordinate = proj_x;
-			//if(proj_y > ground_height_at_x) state = MISS;
+			if((proj_x < 0) || (proj_x > 160) || (proj_y > 125)) state = MISS;
+			else x_coordinate = proj_x;
+			if((proj_x < 0) || (proj_x > 160) || (proj_y > 125)) state = MISS;
 			else if(proj_y < 0) begin
-			tester = tester + 1;
 				i = i + 1;
-				state = UPDATE_SHELL;
+				state = WAIT;
 			end
+			else if((tank1_x <= proj_x) && (proj_x <= tank1_x + 4) && (proj_y >= tank1_y)) state = HIT_T1;
+			else if((tank2_x <= proj_x) && (proj_x <= tank2_x + 4) && (proj_y >= tank2_y)) state = HIT_T2;
+			else if(proj_y > ground_height_at_x) state = MISS;
 			else state = DRAW_SHELL;
 		end
 
@@ -1712,14 +1752,14 @@ ERASE_SHELL: begin
 			y = proj_y;
 			end
 			i = i + 1;
-			state = UPDATE_BLOCK_1;
+			state = WAIT;
 		end
 
 		HIT_T1: begin
-			p1_H = p1_H - 1;
+			p1_H = p1_H - 1; 
 			if(p1_H == 0) state = DEAD1;
 			else state = MISS;
-		end
+		end 
 
 		HIT_T2: begin
 			p2_H = p2_H - 1;
@@ -1729,56 +1769,11 @@ ERASE_SHELL: begin
 
 		MISS: begin
 			// since there is no more manual turn switch, everything happens here
-			colour = 3'b000;
-			x = proj_x;
-			y = proj_y;
 			jump_capacity = 4'd10; // reset them here temporarily
 			fuel = 5'd30;
 			firing = 1'b0;
 			pTurn = ~pTurn;
 			state = WAIT;
-		end
-				 
-		UPDATE_BLOCK_1: begin
-			if ((block_1_colour != 3'b000) && (shell_y > bl_1_y - 8'd1) && (shell_y < bl_1_y + 8'd2) && (shell_x >= bl_1_x) && (shell_x <= bl_1_x + 8'd7)) begin
-				shell_y_direction = ~shell_y_direction;
-				block_1_colour = 3'b000;
-			end
-			state = DRAW_BLOCK_1;
-		end
-				 
-		DRAW_BLOCK_1: begin
-			if (draw_counter < 5'b10000) begin
-						x = bl_1_x + draw_counter[2:0];
-						y = bl_1_y + draw_counter[3];
-						draw_counter = draw_counter + 1'b1;
-						colour = block_1_colour;
-			end
-			else begin
-						draw_counter= 8'b00000000;
-						state = UPDATE_BLOCK_2;
-			end
-		end
-				 
-		UPDATE_BLOCK_2: begin
-			if ((block_2_colour != 3'b000) && (shell_y > bl_2_y - 8'd1) && (shell_y < bl_2_y + 8'd2) && (shell_x >= bl_2_x) && (shell_x <= bl_2_x + 8'd7)) begin
-						shell_y_direction = ~shell_y_direction;
-						block_2_colour = 3'b000;
-			end
-			state = DRAW_BLOCK_2;
-		end
-				 
-		DRAW_BLOCK_2: begin
-					if (draw_counter < 5'b10000) begin
-						x = bl_2_x + draw_counter[2:0];
-						y = bl_2_y + draw_counter[3];
-						draw_counter = draw_counter + 1'b1;
-						colour = block_2_colour;
-						end
-					else begin
-						draw_counter= 8'b00000000;
-						state = WAIT;
-					end
 		end
 
 		DEAD1: begin
