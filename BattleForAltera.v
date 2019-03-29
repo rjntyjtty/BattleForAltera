@@ -4,6 +4,9 @@ module BattleForAltera(
         KEY,
 		  LEDR,
 		  SW,
+		  HEX0,
+		  HEX1,
+		  HEX2,
 		  HEX4,
 		  HEX6,
 		// The ports below are for the VGA output.  Do not change.
@@ -21,6 +24,9 @@ module BattleForAltera(
 	input [3:0] KEY;
 	input [17:0] SW;
 	output [17:0] LEDR;
+	output [6:0] HEX0;
+	output [6:0] HEX1;
+	output [6:0] HEX2;
 	output [6:0] HEX4;
 	output [6:0] HEX6;
 
@@ -35,8 +41,11 @@ module BattleForAltera(
     
 	rateDivider ehhhh(.clock(CLOCK_50), .clk(frame));
 	slowRateDivider testDivider (.clock(CLOCK_50), .clk(slow_frame));
-	hex_display hd(.IN(p1_H), .OUT(HEX6));
-	hex_display hd1(.IN(p2_H), .OUT(HEX4));
+	hex_display hd_H1(.IN(p1_H), .OUT(HEX6));
+	hex_display hd_H2(.IN(p2_H), .OUT(HEX4));
+	hex_display hd_ones(.IN(ang_HEX[3:0]), .OUT(HEX0));
+	hex_display hd_tens(.IN(ang_HEX[7:4]), .OUT(HEX1));
+	hex_display hd_huns(.IN(ang_HEX[11:8]), .OUT(HEX2));
 	ram160x8 groundRAM (.address(8'd80), .clock(CLOCK_50), .data(8'd100), .wren(write_enable), .q(ground_height_at_x));
 	vga_adapter VGA(
 			.resetn(1'b1),
@@ -64,8 +73,9 @@ module BattleForAltera(
 	reg [3:0] jump_capacity = 4'd10;
 	reg [4:0] fuel = 5'd30;
 	reg pTurn = 1'b0;
+	reg [11:0] tester = 1'b1;
 	
-	assign LEDR [11:0] = proj_y;
+	assign LEDR [11:0] = tester;
 	
 	wire [1:0] tank_1_barrel = SW[14:13];
 	wire [1:0] tank_2_barrel = SW[16:15];
@@ -77,6 +87,7 @@ module BattleForAltera(
 	reg [17:0] draw_counter;
 	reg [5:0] state;
 	reg [2:0] colour;
+	reg [11:0] ang_HEX;
 	wire frame, slow_frame;
 	
 	reg [7:0] tank1_x, tank1_y, tank2_x, tank2_y; // tank positions
@@ -720,6 +731,7 @@ module BattleForAltera(
 			p1_H = 2'd3;
 			p2_H = 2'd3;
 			pTurn = 1'b0;
+			tester = 1'b1;
 			// fired = 1'd0;
 			
 			if (draw_counter < 17'b10000000000000000) begin
@@ -982,6 +994,46 @@ module BattleForAltera(
 		end
 		
 		SHELL_FIRED: begin
+			case(SW[5:0])
+				6'b000000: ang_HEX = 12'b1010_1010_0000;
+				6'b000001: ang_HEX = 12'b1010_1010_0101;
+				6'b000010: ang_HEX = 12'b1010_0001_0000;
+				6'b000011: ang_HEX = 12'b1010_0001_0101;
+				6'b000100: ang_HEX = 12'b1010_0010_0000;
+				6'b000101: ang_HEX = 12'b1010_0010_0101;
+				6'b000110: ang_HEX = 12'b1010_0011_0000;
+				6'b000111: ang_HEX = 12'b1010_0011_0101;
+				6'b001000: ang_HEX = 12'b1010_0100_0000;
+				6'b001001: ang_HEX = 12'b1010_0100_0101;
+				6'b001010: ang_HEX = 12'b1010_0101_0000;
+				6'b001011: ang_HEX = 12'b1010_0101_0101;
+				6'b001100: ang_HEX = 12'b1010_0110_0000;
+				6'b001101: ang_HEX = 12'b1010_0110_0101;
+				6'b001110: ang_HEX = 12'b1010_0111_0000;
+				6'b001111: ang_HEX = 12'b1010_0111_0101;
+				6'b010000: ang_HEX = 12'b1010_1000_0000;
+				6'b010001: ang_HEX = 12'b1010_1000_0101;
+				6'b010010: ang_HEX = 12'b1010_1001_0000;
+				6'b010011: ang_HEX = 12'b1010_1001_0101;
+				6'b010100: ang_HEX = 12'b0001_0000_0000;
+				6'b010101: ang_HEX = 12'b0001_0000_0101;
+				6'b010110: ang_HEX = 12'b0001_0001_0000;
+				6'b010111: ang_HEX = 12'b0001_0001_0101;
+				6'b011000: ang_HEX = 12'b0001_0010_0000;
+				6'b011001: ang_HEX = 12'b0001_0010_0101;
+				6'b011010: ang_HEX = 12'b0001_0011_0000;
+				6'b011011: ang_HEX = 12'b0001_0011_0101;
+				6'b011100: ang_HEX = 12'b0001_0100_0000;
+				6'b011101: ang_HEX = 12'b0001_0100_0101;
+				6'b011110: ang_HEX = 12'b0001_0101_0000;
+				6'b011111: ang_HEX = 12'b0001_0101_0101;				
+				6'b100000: ang_HEX = 12'b0001_0110_0000;
+				6'b100001: ang_HEX = 12'b0001_0110_0101;
+				6'b100010: ang_HEX = 12'b0001_0111_0000;
+				6'b100011: ang_HEX = 12'b0001_0111_0101;
+				6'b100100: ang_HEX = 12'b0001_1000_0000;
+				default: ang_HEX = 12'b1011_1100_1100;
+			endcase
 			if(~KEY[0]) begin
 				angle = SW[5:0];
 					case (angle) // Please check this is what is controlling the case - MAX
@@ -1578,11 +1630,12 @@ module BattleForAltera(
 										para[13] = a90[13];
 									end
 					endcase
+
 				firing = 1'd1;
 				i = 1'b0;
 				if(angle > 18) dir = -1;
 				else dir = 1;
-				if((20 >= angle >= 16) || (angle >= 36)) spec = 1'b1;
+				if(((20 >= angle) && (angle >= 16)) || (angle > 36)) spec = 1'b1;
 				else spec = 1'b0;
 			end
 			state = ERASE_SHELL;
@@ -1636,11 +1689,12 @@ ERASE_SHELL: begin
 
 		CHECK_SHELL: begin
 			if((proj_x < 0) || (proj_x > 160) || (proj_y > 120)) state = MISS;
-			else if((tank1_x <= proj_x) && (proj_x <= tank1_x + 5) && (proj_y > tank1_y)) state = HIT_T1;
-			else if((tank2_x <= proj_x) && (proj_x <= tank2_x + 5) && (proj_y > tank2_y)) state = HIT_T2;
+			else if((tank1_x <= proj_x) && (proj_x <= tank1_x + 5) && (120 >= proj_y) && (proj_y >= tank1_y)) state = HIT_T1;
+			else if((tank2_x <= proj_x) && (proj_x <= tank2_x + 5) && (120 >= proj_y) && (proj_y >= tank2_y)) state = HIT_T2;
 			//x_coordinate = proj_x;
 			//if(proj_y > ground_height_at_x) state = MISS;
 			else if(proj_y < 0) begin
+			tester = tester + 1;
 				i = i + 1;
 				state = UPDATE_SHELL;
 			end
@@ -1802,14 +1856,11 @@ module hex_display(IN, OUT);
 			4'b0111: OUT = 7'b1111000;
 			4'b1000: OUT = 7'b0000000;
 			4'b1001: OUT = 7'b0011000;
-			4'b1010: OUT = 7'b0001000;
-			4'b1011: OUT = 7'b0000011;
-			4'b1100: OUT = 7'b1000110;
-			4'b1101: OUT = 7'b0100001;
-			4'b1110: OUT = 7'b0000110;
-			4'b1111: OUT = 7'b0001110;
+			4'b1010: OUT = 7'b1111111;
+			4'b1011: OUT = 7'b0000110;
+			4'b1100: OUT = 7'b0101111;
 			
-			default: OUT = 7'b0111111;
+			default: OUT = 7'b1111111;
 		endcase
 
 	end
