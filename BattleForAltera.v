@@ -823,19 +823,22 @@ module BattleForAltera(
 		UPDATE_TANK_1: begin
 			if (~pTurn && fuel != 5'd0) begin
 			   x_coordinate = tank1_x;
-			   // tank is standing on solid ground: reset jump so can jump top full capacity again
-				if (KEY[3] && tank1_y == (ground_height_at_x- 3'd5)) jump_capacity = 4'd20;
 				    
 				// tank falling after jump or just walked off cliff edge: while above ground, lower tank onto ground
-				else if ((KEY[3] || jump_capacity == 4'd0) && tank1_y < (ground_height_at_x- 3'd5)) begin
-				    jump_capacity = 4'd0; // cannot jump while falling, but can move left and right
+				if ((KEY[3]) && tank1_y < (ground_height_at_x - 3'd5)) begin
 				    tank1_y = tank1_y + 1'b1;
 				end
+				else
 			    
 				// tank moves 1 pixel right if next ground is same level or lower
 				if (~KEY[1] && tank1_x < 8'd154) begin
 				    x_coordinate = tank1_x + 8'd8;
-					 if ((tank1_y <= (ground_height_at_x- 3'd5))) tank1_x = tank1_x + 1'd1; // move tank right if no ground
+					 if ((tank1_y <= (ground_height_at_x- 3'd5))) tank1_x = tank1_x + 1'd1; // move tank right if no groun
+					 else begin
+					   x_coordinate = tank1_x;
+						tank1_y = (ground_height_at_x - 3'd6);
+						tank1_x = tank1_x + 1'd1;
+					 end
 				end
 				// tank moves 1 pixel left if next ground is same level or lower
 				if (~KEY[2] && tank1_x > 8'd0) begin
@@ -845,13 +848,11 @@ module BattleForAltera(
 				// tank is in process of jumping up
 				if (~KEY[3] && jump_capacity > 4'd0) begin
 					tank1_y = tank1_y - 1'b1;
-					jump_capacity = jump_capacity- 1'b1;
-					fuel = fuel - 1'b1;
 				end
 				
 				// tank was at bottom of screen, then walked under the floating ground: teleport up 
 				// this is super stupid so delete it
-				// if (tank1_y > (ground_height_at_x - 3'd5) && tank1_x > 8'd80) tank1_y = ((ground_height_at_x - 3'd5));
+				if (tank1_y > (ground_height_at_x - 3'd5) && tank1_x > 8'd80 && (KEY[1] && KEY[2])) tank1_y = ((ground_height_at_x - 3'd6));
 			end
 			
 			state = UPDATE_TANK_2; // now update tank's position on the screen
