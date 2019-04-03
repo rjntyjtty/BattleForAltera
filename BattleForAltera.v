@@ -77,8 +77,8 @@ module BattleForAltera(
 	reg [4:0] fuel = 5'd30;
 	reg pTurn = 1'b0;
 	
-	wire [1:0] tank_1_barrel = SW[14:13];
-	wire [1:0] tank_2_barrel = SW[16:15];
+	reg [1:0] tank_1_barrel = 2'b00;
+	reg [1:0] tank_2_barrel = 2'b00;
 	
 	reg [10:0] gravity = 10'd1;
 	reg [2:0] accelerate = 3'd0;
@@ -831,13 +831,13 @@ module BattleForAltera(
 			    
 				// tank moves 1 pixel right if next ground is same level or lower
 				if (~KEY[1] && tank1_x < 8'd154) begin
-				   x_coordinate = tank1_x + 8'd8;
+				   x_coordinate = x_coordinate + 8'd8;
 					tank1_x = tank1_x + 1'd1; // move tank right if no ground
-					if (tank1_y != (ground_height_at_x - 3'd5)) begin tank1_y = ((ground_height_at_x - 3'd5)); tank1_x = tank1_x + 8'd6; end
+					if (tank1_y != (ground_height_at_x - 3'd5)) begin tank1_y = ((ground_height_at_x - 3'd5)); tank1_x = tank1_x + 8'd8; end
 				end
 				// tank moves 1 pixel left if next ground is same level or lower
 				if (~KEY[2] && tank1_x > 8'd0) begin
-				   x_coordinate = tank1_x - 1'b1;
+				   x_coordinate = x_coordinate - 2'd2;
 					tank1_x = tank1_x - 1'd1; // move tank left if no ground
 					if (tank1_y != (ground_height_at_x - 3'd5)) begin tank1_y = ((ground_height_at_x - 3'd5)); tank1_x = tank1_x - 8'd5; end
 				end
@@ -858,13 +858,13 @@ module BattleForAltera(
 			    
 				// tank moves 1 pixel right if next ground is same level or lower
 				if (~KEY[1] && tank2_x < 8'd154) begin
-				    x_coordinate = tank2_x + 8'd8;
+				    x_coordinate = x_coordinate + 8'd8;
 					tank2_x = tank2_x + 1'd1; // move tank right if no ground
-					if (tank2_y != (ground_height_at_x - 3'd5)) begin tank2_y = ((ground_height_at_x - 3'd5)); tank2_x = tank2_x + 8'd5; end
+					if (tank2_y != (ground_height_at_x - 3'd5)) begin tank2_y = ((ground_height_at_x - 3'd5)); tank2_x = tank2_x + 8'd7; end
 				end
 				// tank moves 1 pixel left if next ground is same level or lower
 				if (~KEY[2] && tank2_x > 8'd0) begin
-				    x_coordinate = tank2_x - 1'b1;
+				    x_coordinate = x_coordinate - 2'd3;
 					tank2_x = tank2_x - 1'd1; // move tank left if no ground
 					if (tank2_y != (ground_height_at_x - 3'd5)) begin tank2_y = ((ground_height_at_x - 3'd5)); tank2_x = tank2_x - 8'd6; end
 				end
@@ -1021,44 +1021,196 @@ module BattleForAltera(
 		
 		SHELL_FIRED: begin
 			case(SW[5:0])
-				6'b000000: ang_HEX = 12'b1010_1010_0000;
-				6'b000001: ang_HEX = 12'b1010_1010_0101;
-				6'b000010: ang_HEX = 12'b1010_0001_0000;
-				6'b000011: ang_HEX = 12'b1010_0001_0101;
-				6'b000100: ang_HEX = 12'b1010_0010_0000;
-				6'b000101: ang_HEX = 12'b1010_0010_0101;
-				6'b000110: ang_HEX = 12'b1010_0011_0000;
-				6'b000111: ang_HEX = 12'b1010_0011_0101;
-				6'b001000: ang_HEX = 12'b1010_0100_0000;
-				6'b001001: ang_HEX = 12'b1010_0100_0101;
-				6'b001010: ang_HEX = 12'b1010_0101_0000;
-				6'b001011: ang_HEX = 12'b1010_0101_0101;
-				6'b001100: ang_HEX = 12'b1010_0110_0000;
-				6'b001101: ang_HEX = 12'b1010_0110_0101;
-				6'b001110: ang_HEX = 12'b1010_0111_0000;
-				6'b001111: ang_HEX = 12'b1010_0111_0101;
-				6'b010000: ang_HEX = 12'b1010_1000_0000;
-				6'b010001: ang_HEX = 12'b1010_1000_0101;
-				6'b010010: ang_HEX = 12'b1010_1001_0000;
-				6'b010011: ang_HEX = 12'b1010_1001_0101;
-				6'b010100: ang_HEX = 12'b0001_0000_0000;
-				6'b010101: ang_HEX = 12'b0001_0000_0101;
-				6'b010110: ang_HEX = 12'b0001_0001_0000;
-				6'b010111: ang_HEX = 12'b0001_0001_0101;
-				6'b011000: ang_HEX = 12'b0001_0010_0000;
-				6'b011001: ang_HEX = 12'b0001_0010_0101;
-				6'b011010: ang_HEX = 12'b0001_0011_0000;
-				6'b011011: ang_HEX = 12'b0001_0011_0101;
-				6'b011100: ang_HEX = 12'b0001_0100_0000;
-				6'b011101: ang_HEX = 12'b0001_0100_0101;
-				6'b011110: ang_HEX = 12'b0001_0101_0000;
-				6'b011111: ang_HEX = 12'b0001_0101_0101;				
-				6'b100000: ang_HEX = 12'b0001_0110_0000;
-				6'b100001: ang_HEX = 12'b0001_0110_0101;
-				6'b100010: ang_HEX = 12'b0001_0111_0000;
-				6'b100011: ang_HEX = 12'b0001_0111_0101;
-				6'b100100: ang_HEX = 12'b0001_1000_0000;
-				default: ang_HEX = 12'b1011_1100_1100;
+				6'b000000: begin
+					ang_HEX = 12'b1010_1010_0000;
+					if (~pTurn) tank_1_barrel = 2'b00;
+					else tank_2_barrel = 2'b11;
+					end
+				6'b000001: begin
+					ang_HEX = 12'b1010_1010_0101;
+					if (~pTurn) tank_1_barrel = 2'b00;
+					else tank_2_barrel = 2'b11;
+					end
+				6'b000010: begin
+					ang_HEX = 12'b1010_0001_0000;
+					if (~pTurn) tank_1_barrel = 2'b00;
+					else tank_2_barrel = 2'b11;
+					end
+				6'b000011: begin
+					ang_HEX = 12'b1010_0001_0101;
+					if (~pTurn) tank_1_barrel = 2'b00;
+					else tank_2_barrel = 2'b11;
+					end
+				6'b000100: begin
+					ang_HEX = 12'b1010_0010_0000;
+					if (~pTurn) tank_1_barrel = 2'b00;
+					else tank_2_barrel = 2'b11;
+					end
+				6'b000101: begin
+					ang_HEX = 12'b1010_0010_0101;
+					if (~pTurn) tank_1_barrel = 2'b00;
+					else tank_2_barrel = 2'b11;
+					end
+				6'b000110: begin
+					ang_HEX = 12'b1010_0011_0000;
+					if (~pTurn) tank_1_barrel = 2'b01;
+					else tank_2_barrel = 2'b00;
+					end
+				6'b000111: begin
+					ang_HEX = 12'b1010_0011_0101;
+					if (~pTurn) tank_1_barrel = 2'b01;
+					else tank_2_barrel = 2'b11;
+					end
+				6'b001000: begin
+					ang_HEX = 12'b1010_0100_0000;
+					if (~pTurn) tank_1_barrel = 2'b01;
+					else tank_2_barrel = 2'b11;
+					end
+				6'b001001: begin
+					ang_HEX = 12'b1010_0100_0101;
+					if (~pTurn) tank_1_barrel = 2'b01;
+					else tank_2_barrel = 2'b11;
+					end
+				6'b001010: begin
+					ang_HEX = 12'b1010_0101_0000;
+					if (~pTurn) tank_1_barrel = 2'b01;
+					else tank_2_barrel = 2'b11;
+					end
+				6'b001011: begin
+					ang_HEX = 12'b1010_0101_0101;
+					if (~pTurn) tank_1_barrel = 2'b01;
+					else tank_2_barrel = 2'b11;
+					end
+				6'b001100: begin
+					ang_HEX = 12'b1010_0110_0000;
+					if (~pTurn) tank_1_barrel = 2'b01;
+					else tank_2_barrel = 2'b11;
+					end
+				6'b001101: begin
+					ang_HEX = 12'b1010_0110_0101;
+					if (~pTurn) tank_1_barrel = 2'b01;
+					else tank_2_barrel = 2'b11;
+					end
+				6'b001110: begin
+					ang_HEX = 12'b1010_0111_0000;
+					if (~pTurn) tank_1_barrel = 2'b01;
+					else tank_2_barrel = 2'b11;
+					end
+				6'b001111: begin
+					ang_HEX = 12'b1010_0111_0101;
+					if (~pTurn) tank_1_barrel = 2'b01;
+					else tank_2_barrel = 2'b11;
+					end
+				6'b010000: begin
+					ang_HEX = 12'b1010_1000_0000;
+					if (~pTurn) tank_1_barrel = 2'b01;
+					else tank_2_barrel = 2'b11;
+					end
+				6'b010001: begin
+					ang_HEX = 12'b1010_1000_0101;
+					if (~pTurn) tank_1_barrel = 2'b01;
+					else tank_2_barrel = 2'b11;
+					end
+				6'b010010: begin
+					ang_HEX = 12'b1010_1001_0000;
+					if (~pTurn) tank_1_barrel = 2'b11;
+					else tank_2_barrel = 2'b11;
+					end
+				6'b010011: begin
+					ang_HEX = 12'b1010_1001_0101;
+					if (~pTurn) tank_1_barrel = 2'b11;
+					else tank_2_barrel = 2'b01;
+					end
+				6'b010100: begin
+					ang_HEX = 12'b0001_0000_0000;
+					if (~pTurn) tank_1_barrel = 2'b11;
+					else tank_2_barrel = 2'b01;
+					end
+				6'b010101: begin
+					ang_HEX = 12'b0001_0000_0101;
+					if (~pTurn) tank_1_barrel = 2'b11;
+					else tank_2_barrel = 2'b01;
+					end
+				6'b010110: begin
+					ang_HEX = 12'b0001_0001_0000;
+					if (~pTurn) tank_1_barrel = 2'b11;
+					else tank_2_barrel = 2'b01;
+					end
+				6'b010111: begin
+					ang_HEX = 12'b0001_0001_0101;
+					if (~pTurn) tank_1_barrel = 2'b11;
+					else tank_2_barrel = 2'b01;
+					end
+				6'b011000: begin
+					ang_HEX = 12'b0001_0010_0000;
+					if (~pTurn) tank_1_barrel = 2'b11;
+					else tank_2_barrel = 2'b01;
+					end
+				6'b011001: begin
+					ang_HEX = 12'b0001_0010_0101;
+					if (~pTurn) tank_1_barrel = 2'b11;
+					else tank_2_barrel = 2'b01;
+					end
+				6'b011010: begin
+					ang_HEX = 12'b0001_0011_0000;
+					if (~pTurn) tank_1_barrel = 2'b11;
+					else tank_2_barrel = 2'b01;
+					end
+				6'b011011: begin
+					ang_HEX = 12'b0001_0011_0101;
+					if (~pTurn) tank_1_barrel = 2'b11;
+					else tank_2_barrel = 2'b01;
+					end
+				6'b011100: begin
+					ang_HEX = 12'b0001_0100_0000;
+					if (~pTurn) tank_1_barrel = 2'b11;
+					else tank_2_barrel = 2'b01;
+					end
+				6'b011101: begin
+					ang_HEX = 12'b0001_0100_0101;
+					if (~pTurn) tank_1_barrel = 2'b11;
+					else tank_2_barrel = 2'b01;
+					end
+				6'b011110: begin
+					ang_HEX = 12'b0001_0101_0000;
+					if (~pTurn) tank_1_barrel = 2'b11;
+					else tank_2_barrel = 2'b00;
+					end
+				6'b011111: begin
+					ang_HEX = 12'b0001_0101_0101;
+					if (~pTurn) tank_1_barrel = 2'b11;
+					else tank_2_barrel = 2'b00;
+					end			
+				6'b100000: begin
+					ang_HEX = 12'b0001_0110_0000;
+					if (~pTurn) tank_1_barrel = 2'b11;
+					else tank_2_barrel = 2'b00;
+					end
+				6'b100001: begin
+					ang_HEX = 12'b0001_0110_0101;
+					if (~pTurn) tank_1_barrel = 2'b11;
+					else tank_2_barrel = 2'b00;
+					end
+				6'b100010: begin
+					ang_HEX = 12'b0001_0111_0000;
+					if (~pTurn) tank_1_barrel = 2'b11;
+					else tank_2_barrel = 2'b00;
+					end
+				6'b100011: begin
+					ang_HEX = 12'b0001_0111_0101;
+					if (~pTurn) tank_1_barrel = 2'b11;
+					else tank_2_barrel = 2'b00;
+					end
+				6'b100100: begin
+					ang_HEX = 12'b0001_1000_0000;
+					if (~pTurn) tank_1_barrel = 2'b11;
+					else tank_2_barrel = 2'b00;
+					end
+				default: begin
+					ang_HEX = 12'b1011_1100_1100;
+					if (~pTurn) tank_1_barrel = 2'b11;
+					else tank_2_barrel = 2'b11;
+					end
 			endcase
 			if(~KEY[0]) begin
 				angle = SW[5:0];
@@ -1698,11 +1850,11 @@ module BattleForAltera(
 			end
 			else begin
 				if (~pTurn) begin
-					shell_x = tank1_x + 2'd4; // update shell position to tank position
+					shell_x = tank1_x + 2'd5; // update shell position to tank position
 					shell_y = tank1_y - 2'd2;
 				end
 				else begin
-					shell_x = tank2_x + 2'd4; // update shell position to tank position
+					shell_x = tank2_x + 2'd5; // update shell position to tank position
 					shell_y = tank2_y - 2'd2;
 				end
 				
