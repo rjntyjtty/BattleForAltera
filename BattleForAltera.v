@@ -48,7 +48,8 @@ module BattleForAltera(
 	hex_display hd_ones(.IN(ang_HEX[3:0]), .OUT(HEX0));
 	hex_display hd_tens(.IN(ang_HEX[7:4]), .OUT(HEX1));
 	hex_display hd_huns(.IN(ang_HEX[11:8]), .OUT(HEX2));
-	ram160x8 groundRAM (.address(x_coordinate), .clock(CLOCK_50), .data(y_coordinate), .wren(write_enable), .q(ground_height_at_x));
+	ram160x8 leftgroundRAM (.address(x_coordinate), .clock(CLOCK_50), .data(y_coordinate), .wren(write_enable), .q(ground_height_at_x));
+	ram160x8 rightgroundRAM (.address(x_coordinate), .clock(CLOCK_50), .data(y_coordinate), .wren(write_enable), .q(right_ground_height_at_x));
 	vga_adapter VGA(
 			.resetn(1'b1),
 			.clock(CLOCK_50),
@@ -72,7 +73,7 @@ module BattleForAltera(
 	
 	reg write_enable; // to initialize ground stuff
 	reg firing = 1'd0; // check for if shell is fired
-	reg [3:0] jump_capacity = 4'd10;
+	reg [3:0] jump_capacity = 5'd30;
 	reg [4:0] fuel = 5'd30;
 	reg pTurn = 1'b0;
 	
@@ -91,7 +92,7 @@ module BattleForAltera(
 	
 	reg [7:0] tank1_x, tank1_y, tank2_x, tank2_y; // tank positions
 	
-	wire [7:0] ground_height_at_x; // ground height when pulling the x val from RAM
+	wire [7:0] ground_height_at_x, right_ground_height_at_x; // ground height when pulling the x val from RAM
 	
 	////////
 	reg signed [7:0] shell_x, shell_y;
@@ -776,14 +777,14 @@ module BattleForAltera(
 		
     	INIT_TANK_1: begin // update to draw tank here
 			tank1_x = 8'd5;
-			tank1_y = 8'd10;
+			tank1_y = 8'd75 - 8'd5;
 			draw_counter= 8'b00000000;
 			state = INIT_TANK_2;
 		end
 		
     	INIT_TANK_2: begin // update to draw tank here
 			tank2_x = 8'd150;
-			tank2_y = 8'd10;
+			tank2_y = 8'd85 - 8'd5;
 			state = WAIT;
 		end
 
@@ -796,8 +797,8 @@ module BattleForAltera(
 			if (draw_counter < 9'b100000000) begin
 				if (draw_counter[3:0] <= 4'd5)
 				x = tank1_x + draw_counter[3:0];
-				if (draw_counter[8:4] <= 4'd4)
-				y = tank1_y + draw_counter[8:4] - 1'b1;
+				if (draw_counter[8:4] <= 4'd5)
+				y = tank1_y + draw_counter[8:4] - 2'd2;
 				draw_counter = draw_counter + 1'b1;
 			end
 			else begin
@@ -809,9 +810,9 @@ module BattleForAltera(
 		ERASE_TANK_2: begin
 			if (draw_counter < 9'b100000000) begin
 				if (draw_counter[3:0] <= 4'd5)
-				x = tank2_x + draw_counter[3:0];
-				if (draw_counter[8:4] <= 4'd4)
-				y = tank2_y + draw_counter[8:4] - 1'b1;
+				x = tank2_x + draw_counter[3:0] - 1'b1;
+				if (draw_counter[8:4] <= 4'd5)
+				y = tank2_y + draw_counter[8:4] - 2'd2;
 				draw_counter = draw_counter + 1'b1;
 			end
 			else begin
@@ -821,72 +822,54 @@ module BattleForAltera(
 		end
 
 		UPDATE_TANK_1: begin
-			if (~pTurn && fuel != 5'd0) begin
+			if (~pTurn) begin
 			   x_coordinate = tank1_x;
-			   // tank is standing on solid ground: reset jump so can jump top full capacity again
-				if (KEY[3] && tank1_y == (ground_height_at_x- 3'd5)) jump_capacity = 4'd20;
-				    
 				// tank falling after jump or just walked off cliff edge: while above ground, lower tank onto ground
-				else if ((KEY[3] || jump_capacity == 4'd0) && tank1_y < (ground_height_at_x- 3'd5)) begin
-				    jump_capacity = 4'd0; // cannot jump while falling, but can move left and right
-				    tank1_y = tank1_y + 1'b1;
-				end
+				//if (((tank1_y <= (ground_height_at_x - 3'd5)) || (tank1_y <= (right_ground_height_at_x- 3'd5)))) begin
+				//    tank1_y = tank1_y + 1'b1;
+				//end
 			    
 				// tank moves 1 pixel right if next ground is same level or lower
 				if (~KEY[1] && tank1_x < 8'd154) begin
-				    x_coordinate = tank1_x + 8'd8;
-					 if ((tank1_y <= (ground_height_at_x- 3'd5))) tank1_x = tank1_x + 1'd1; // move tank right if no ground
+				   x_coordinate = tank1_x + 8'd8;
+					tank1_x = tank1_x + 1'd1; // move tank right if no ground
+					if (tank1_y != (ground_height_at_x - 3'd5)) begin tank1_y = ((ground_height_at_x - 3'd5)); tank1_x = tank1_x + 8'd6; end
 				end
 				// tank moves 1 pixel left if next ground is same level or lower
 				if (~KEY[2] && tank1_x > 8'd0) begin
-				    x_coordinate = tank1_x - 1'b1;
-					 if (tank1_y <= (ground_height_at_x- 3'd5)) tank1_x = tank1_x - 1'd1; // move tank left if no ground
+				   x_coordinate = tank1_x - 1'b1;
+					tank1_x = tank1_x - 1'd1; // move tank left if no ground
+					if (tank1_y != (ground_height_at_x - 3'd5)) begin tank1_y = ((ground_height_at_x - 3'd5)); tank1_x = tank1_x - 8'd5; end
 				end
-				// tank is in process of jumping up
-				if (~KEY[3] && jump_capacity > 4'd0) begin
-					tank1_y = tank1_y - 1'b1;
-					jump_capacity = jump_capacity- 1'b1;
-					fuel = fuel - 1'b1;
-				end
-				
-				// tank was at bottom of screen, then walked under the floating ground: teleport up 
-				// this is super stupid so delete it
-				// if (tank1_y > (ground_height_at_x - 3'd5) && tank1_x > 8'd80) tank1_y = ((ground_height_at_x - 3'd5));
+	
+				//if (tank1_y != (ground_height_at_x - 3'd5)) tank1_y = ((ground_height_at_x - 3'd5));
 			end
 			
 			state = UPDATE_TANK_2; // now update tank's position on the screen
 		end
 		
 		UPDATE_TANK_2: begin
-			if (pTurn && fuel != 5'd0) begin
+			if (pTurn) begin
 				x_coordinate = tank2_x;
-			    // tank is standing on solid ground: reset jump so can jump top full capacity again
-				if (KEY[3] && tank2_y == ground_height_at_x) jump_capacity = 4'd20;
-				    
 				// tank falling after jump or just walked off cliff edge: while above ground, lower tank onto ground
-				else if ((KEY[3] || jump_capacity == 4'd0) && tank2_y < ground_height_at_x) begin
-				    jump_capacity = 4'd0; // cannot jump while falling, but can move left and right
-				    tank2_y = tank2_y + 1'b1;
-				end
+				//if (((tank2_y <= (ground_height_at_x- 3'd5)) || (tank2_y <= (right_ground_height_at_x- 3'd5)))) begin
+				//    tank2_y = tank2_y + 1'b1;
+				//end
 			    
 				// tank moves 1 pixel right if next ground is same level or lower
-				if (~KEY[1] && tank2_x < 8'd160) begin
-				    x_coordinate = tank2_x + 3'd5;
-					 tank2_x = tank2_x + 1'b1;
-					 if (tank2_y > ground_height_at_x) tank2_x = tank2_x - 1'b1; // stops tank from moving
+				if (~KEY[1] && tank2_x < 8'd154) begin
+				    x_coordinate = tank2_x + 8'd8;
+					tank2_x = tank2_x + 1'd1; // move tank right if no ground
+					if (tank2_y != (ground_height_at_x - 3'd5)) begin tank2_y = ((ground_height_at_x - 3'd5)); tank2_x = tank2_x + 8'd5; end
 				end
 				// tank moves 1 pixel left if next ground is same level or lower
 				if (~KEY[2] && tank2_x > 8'd0) begin
 				    x_coordinate = tank2_x - 1'b1;
-					 tank2_x = tank2_x - 1'b1;
-					 if (tank2_y > ground_height_at_x) tank2_x = tank2_x + 1'b1; // stops tank from moving
+					tank2_x = tank2_x - 1'd1; // move tank left if no ground
+					if (tank2_y != (ground_height_at_x - 3'd5)) begin tank2_y = ((ground_height_at_x - 3'd5)); tank2_x = tank2_x - 8'd6; end
 				end
-				// tank is in process of jumping up
-				if (~KEY[3] && jump_capacity > 4'd0) begin
-					tank2_y = tank2_y - 1'b1;
-					jump_capacity = jump_capacity- 1'b1;
-					fuel = fuel - 1'b1;
-				end
+	
+				//if (tank2_y != (ground_height_at_x - 3'd5)) tank2_y = ((ground_height_at_x - 3'd5));
 			end
 			
 			state = DRAW_TANK_1;
@@ -1716,11 +1699,11 @@ module BattleForAltera(
 			else begin
 				if (~pTurn) begin
 					shell_x = tank1_x + 2'd4; // update shell position to tank position
-					shell_y = tank1_y - 1'd1;
+					shell_y = tank1_y - 2'd2;
 				end
 				else begin
 					shell_x = tank2_x + 2'd4; // update shell position to tank position
-					shell_y = tank2_y - 1'd1;
+					shell_y = tank2_y - 2'd2;
 				end
 				
 				state = WAIT;
@@ -1769,7 +1752,7 @@ module BattleForAltera(
 
 		MISS: begin
 			// since there is no more manual turn switch, everything happens here
-			jump_capacity = 4'd10; // reset them here temporarily
+			jump_capacity = 5'd30; // reset them here temporarily
 			fuel = 5'd30;
 			firing = 1'b0;
 			pTurn = ~pTurn;
