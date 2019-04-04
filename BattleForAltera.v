@@ -1,55 +1,95 @@
+/*
+  ____        _   _   _        ______                    _ _                 
+ |  _ \      | | | | | |      |  ____|             /\   | | |                
+ | |_) | __ _| |_| |_| | ___  | |__ ___  _ __     /  \  | | |_ ___ _ __ __ _ 
+ |  _ < / _` | __| __| |/ _ \ |  __/ _ \| '__|   / /\ \ | | __/ _ \ '__/ _` |
+ | |_) | (_| | |_| |_| |  __/ | | | (_) | |     / ____ \| | ||  __/ | | (_| |
+ |____/ \__,_|\__|\__|_|\___| |_|  \___/|_|    /_/    \_\_|\__\___|_|  \__,_|
+
+
+     ███████ ]▄▄▄▄▄▄▄▄▃									 		  ▃▄▄▄▄▄▄▄▄[ ███████ 
+▂▄▅█████████▅▄▃▂													       ▂▃▄▅█████████▅▄▂
+I███████████████████].											   .[███████████████████I					
+ ◥⊙▲⊙▲⊙▲⊙▲⊙▲⊙▲⊙▲⊙▲⊙◤												     ◤⊙▲⊙▲⊙▲⊙▲⊙▲⊙▲⊙▲⊙▲⊙◥ 
+____________________________________________________________________________________
+████████████████████████████████████████████████████████████████████████████████████
+
+////////////////////////////////////////////
+CSCB58 Final Project
+Winter 2019
+////////////////////////////////////////////
+Authors:
+
+Sean Applebaum
+David Cui
+Max Sun
+Carrie Zhong
+////////////////////////////////////////////
+
+*/
+
+
 module BattleForAltera(
 		CLOCK_50,						//	On Board 50 MHz
-		// inputs
-        KEY,
-		  LEDR,
-		  SW,
-		  HEX0,
-		  HEX1,
-		  HEX2,
-		  HEX4,
-		  HEX6,
+		// Inputs
+      KEY,								// Tank controls
+		SW,								// Tank controls
+		// Outputs
+		HEX0,
+		HEX1,
+		HEX2,
+		HEX4,
+		HEX6,
 		// The ports below are for the VGA output.  Do not change.
 		VGA_CLK,   						//	VGA Clock
 		VGA_HS,							//	VGA H_SYNC
 		VGA_VS,							//	VGA V_SYNC
-		VGA_BLANK_N,						//	VGA BLANK
+		VGA_BLANK_N,					//	VGA BLANK
 		VGA_SYNC_N,						//	VGA SYNC
 		VGA_R,   						//	VGA Red[9:0]
 		VGA_G,	 						//	VGA Green[9:0]
-		VGA_B   						//	VGA Blue[9:0]
+		VGA_B   							//	VGA Blue[9:0]
 	);
 
-	input CLOCK_50; //	50 MHz
-	input [3:0] KEY;
-	input [17:0] SW;
-	output [17:0] LEDR;
-	output [6:0] HEX0;
-	output [6:0] HEX1;
-	output [6:0] HEX2;
-	output [6:0] HEX4;
-	output [6:0] HEX6;
+	input		CLOCK_50; 			//	50 MHz
+	input		[3:0] KEY;
+	input		[17:0] SW;
 
-	output			VGA_CLK;   				//	VGA Clock
-	output			VGA_HS;					//	VGA H_SYNC
-	output			VGA_VS;					//	VGA V_SYNC
-	output			VGA_BLANK_N;			//	VGA BLANK
-	output			VGA_SYNC_N;				//	VGA SYNC
-	output	[9:0]	VGA_R;   				//	VGA Red[9:0]
-	output	[9:0]	VGA_G;	 				//	VGA Green[9:0]
-	output	[9:0]	VGA_B;   				//	VGA Blue[9:0]
+	output	[6:0] HEX0;
+	output	[6:0] HEX1;
+	output	[6:0] HEX2;
+	output	[6:0] HEX4;
+	output	[6:0] HEX6;
+	output	VGA_CLK;   			//	VGA Clock
+	output	VGA_HS;				//	VGA H_SYNC
+	output	VGA_VS;				//	VGA V_SYNC
+	output	VGA_BLANK_N;		//	VGA BLANK
+	output	VGA_SYNC_N;			//	VGA SYNC
+	output	[9:0]	VGA_R;   	//	VGA Red[9:0]
+	output	[9:0]	VGA_G;	 	//	VGA Green[9:0]
+	output	[9:0]	VGA_B;   	//	VGA Blue[9:0]
    
-	reg [7:0] x_coordinate, y_coordinate;
-	
-	rateDivider ehhhh(.clock(CLOCK_50), .clk(frame));
-	slowRateDivider testDivider (.clock(CLOCK_50), .clk(slow_frame));
-	hex_display hd_H1(.IN(p1_H), .OUT(HEX6));
-	hex_display hd_H2(.IN(p2_H), .OUT(HEX4));
-	hex_display hd_ones(.IN(ang_HEX[3:0]), .OUT(HEX0));
-	hex_display hd_tens(.IN(ang_HEX[7:4]), .OUT(HEX1));
-	hex_display hd_huns(.IN(ang_HEX[11:8]), .OUT(HEX2));
+	/// RAM ///
+	reg [7:0] x_coordinate, y_coordinate; // Input coordinates for RAM
+	reg write_enable; // To read/write from RAM
+	wire [7:0] ground_height_at_x; // ground height when pulling the x val from RAM
 	ram160x8 leftgroundRAM (.address(x_coordinate), .clock(CLOCK_50), .data(y_coordinate), .wren(write_enable), .q(ground_height_at_x));
-	ram160x8 rightgroundRAM (.address(x_coordinate), .clock(CLOCK_50), .data(y_coordinate), .wren(write_enable), .q(right_ground_height_at_x));
+	
+	/// Dividers ///
+	rateDivider mainDivider (.clock(CLOCK_50), .clk(frame)); // Main divider
+	slowRateDivider firingDivider (.clock(CLOCK_50), .clk(slow_frame)); // Divider for when firing shell
+	
+	/// Hex Displays ///
+	hex_display hd_H1(.IN(p1_H), .OUT(HEX6)); // Output Player 1's Health to HEX6
+	hex_display hd_H2(.IN(p2_H), .OUT(HEX4)); // Output Player 2's Health to HEX4
+	hex_display hd_ones(.IN(ang_HEX[3:0]), .OUT(HEX0));	//
+	hex_display hd_tens(.IN(ang_HEX[7:4]), .OUT(HEX1));	// Output angle of current Player's shot
+	hex_display hd_huns(.IN(ang_HEX[11:8]), .OUT(HEX2));	//
+	
+	/// VGA ///
+	reg [7:0] x, y; // Positions to be plotted at
+	reg [2:0] colour; // Colour to draw (RGB)
+	
 	vga_adapter VGA(
 			.resetn(1'b1),
 			.clock(CLOCK_50),
@@ -71,42 +111,35 @@ module BattleForAltera(
 	defparam VGA.BITS_PER_COLOUR_CHANNEL = 1;
 	defparam VGA.BACKGROUND_IMAGE = "black.mif";
 	
-	reg write_enable; // to initialize ground stuff
-	reg firing = 1'd0; // check for if shell is fired
-	reg [3:0] jump_capacity = 5'd30;
-	reg [4:0] fuel = 5'd30;
-	reg pTurn = 1'b0;
-	
-	reg [1:0] tank_1_barrel = 2'b00;
-	reg [1:0] tank_2_barrel = 2'b00;
-	
-	reg [10:0] gravity = 10'd1;
-	reg [2:0] accelerate = 3'd0;
-	
-	reg [7:0] x, y;
-	reg [17:0] draw_counter;
-	reg [5:0] state;
-	reg [2:0] colour;
-	reg [11:0] ang_HEX;
-	wire frame, slow_frame;
-	
+	/// Tanks ///
 	reg [7:0] tank1_x, tank1_y, tank2_x, tank2_y; // tank positions
+	reg [1:0] tank_1_barrel = 2'b00; // Barrel position for Tank 1
+	reg [1:0] tank_2_barrel = 2'b00; // Barrel position for Tank 1
+	reg [1:0] p1_H, p2_H = 2'd3; // Tanks health
+	reg [4:0] fuel = 5'd30; // Current fuel value
+	reg pTurn = 1'b0; // Current player's turn (0 = Player 1, 1 = Player 2)
 	
-	wire [7:0] ground_height_at_x, right_ground_height_at_x; // ground height when pulling the x val from RAM
+	/// Misc ///
+	reg [17:0] draw_counter; // Counter used for drawing sequentially
+	reg [5:0] state; // Current game state
+	reg [11:0] ang_HEX; // Angle of current player converted to HEX
+	reg firing = 1'd0; // Check for if shell is fired
+	wire frame, slow_frame; // FPS
 	
-	////////
-	reg signed [7:0] shell_x, shell_y;
-	reg signed [10:0] proj_x, proj_y;
-	reg [5:0] angle;
-	reg signed [0:10] para [31:0];
-	reg signed [1:0] dir;
-	reg spec;
-	reg signed [6:0] i;
-	reg [1:0] p1_H, p2_H = 2'd3;
-
+	/// Projectile Motion ///
+	reg [5:0] angle; // Current Player's selected angle
+	reg spec; // Increment via y instead of x (for high angles)
+	reg signed [7:0] shell_x, shell_y; // Firing position of tank
+	reg signed [10:0] proj_x, proj_y; // Positions of shell
+	reg signed [0:10] para [31:0]; // Pre-drawn parabola based on angle
+	reg signed [1:0] dir; // Direction of shell firing
+	reg signed [6:0] i; // Index/Incrementer
+	
+	/// Absolute Chaos, better known as a lot of hard code ///
 	wire signed [0:10] a0 [31:0], a5 [31:0], a10 [31:0], a15 [31:0], a20 [31:0], a25 [31:0], a30 [31:0], a35 [31:0], a40 [31:0], a45 [31:0], a50 [31:0], a55 [31:0], a60 [31:0], a65 [31:0], a70 [31:0], a75 [31:0];
 	wire signed [0:7] a80 [13:0], a85 [13:0], a90 [13:0], v_c [13:0];
 	
+	// The mentioned hard code, all to avoid FPN ///
 	assign a0[0] = 1;
 	assign a0[1] = 1;
 	assign a0[2] = 1;
@@ -402,6 +435,7 @@ module BattleForAltera(
 	assign a45[4] = -21;
 	assign a45[5] = -24;
 	assign a45[6] = -27;
+	/// Have a nice day ///
 	assign a45[7] = -30;
 	assign a45[8] = -32;
 	assign a45[9] = -34;
@@ -675,7 +709,8 @@ module BattleForAltera(
 	assign v_c[11] = 80;
 	assign v_c[12] = 100;
 	assign v_c[13] = 120;
-	 
+	
+	/// State Defenitions ///
 	localparam  RESET = 6'd0,
 	            INIT_MAP = 6'd1,
 					DRAW_MAP = 6'd2,
@@ -711,109 +746,125 @@ module BattleForAltera(
 		if (SW[17]) state = RESET; // reset
 
 		case (state)
+		
+		/// RESET: State that resets the game data and screen, as well as sends to re-initializing states. ///
 		RESET: begin
-			write_enable = 1'd1; // enable drawing here
-			firing = 1'b0;
-			p1_H = 2'd3;
-			p2_H = 2'd3;
-			pTurn = 1'b0;
-			// fired = 1'd0;
+			write_enable = 1'd1; // Enable writing access to RAM
+			firing = 1'b0; // Stop firing if firing when reset
+			p1_H = 2'd3; // Set player 1 health to 3
+			p2_H = 2'd3; // Set player 2 health to 3
+			pTurn = 1'b0; // Reset to player 1
 			
+			/// Fill screen black ///
 			if (draw_counter < 17'b10000000000000000) begin
 				colour = 3'b000;
 				x = draw_counter[7:0];
 				y = draw_counter[16:8];
 				draw_counter = draw_counter + 1'b1;
 			end
-			else begin
-				draw_counter= 8'b00000000;
-				state = INIT_MAP;
+			else begin // When done filling screen black
+				draw_counter= 8'b00000000; // Reset drawing counter
+				state = INIT_MAP; // Initiate the map to draw (if multiple maps, will require logic to determine which map to initialize)
 			end
 		end
 		
+		/// INIT_MAP: State that initializes the map, if more maps are added they would be a new state and what state to go to would
+		///           have the logic added added to the RESET state as to which map to initialize ///
 		INIT_MAP: begin
-		   write_enable = 1'd1;
-			
-			
+		   write_enable = 1'd1; // Enable writing access to RAM
 			if (draw_counter < 17'b10000000000000000) begin
-				x_coordinate = draw_counter[7:0];
-			    // 1st Map: 3 rectangular mountains 15 pixels tall, each spaced 20 pixels apart
-			    if ((x_coordinate >= 8'd20 && x_coordinate < 8'd40) || (x_coordinate >= 8'd60 && x_coordinate < 8'd80) || (x_coordinate >= 8'd100 && x_coordinate < 8'd120)) y_coordinate = (8'd115 - 8'd15);
-			    if (x_coordinate >= 8'd0 && x_coordinate < 8'd20) y_coordinate = 8'd75;
-				 if (x_coordinate >= 8'd40 && x_coordinate < 8'd80) y_coordinate = 8'd90;
-				 if (x_coordinate >= 8'd80 && x_coordinate < 8'd100) y_coordinate = 8'd115;
-				 if (x_coordinate >= 8'd120 && x_coordinate < 8'd140) y_coordinate = 8'd105;
-				 if (x_coordinate >= 8'd140 && x_coordinate < 8'd160) y_coordinate = 8'd85;
+				x_coordinate = draw_counter[7:0]; // Use draw counter to increment x_coordinate
+			   /// 1st Map: 3 rectangular mountains 15 pixels tall, each spaced 20 pixels apart ///
+			   if ((x_coordinate >= 8'd20 && x_coordinate < 8'd40) || (x_coordinate >= 8'd60 && x_coordinate < 8'd80) || (x_coordinate >= 8'd100 && x_coordinate < 8'd120)) y_coordinate = (8'd115 - 8'd15);
+			   if (x_coordinate >= 8'd0 && x_coordinate < 8'd20) y_coordinate = 8'd75;
+				if (x_coordinate >= 8'd40 && x_coordinate < 8'd80) y_coordinate = 8'd90;
+				if (x_coordinate >= 8'd80 && x_coordinate < 8'd100) y_coordinate = 8'd115;
+				if (x_coordinate >= 8'd120 && x_coordinate < 8'd140) y_coordinate = 8'd105;
+				if (x_coordinate >= 8'd140 && x_coordinate < 8'd160) y_coordinate = 8'd85;
 				
-				draw_counter = draw_counter + 1'd1;
+				draw_counter = draw_counter + 1'd1; // Increment drawing counter
 			end
 			else begin
-		        write_enable = 1'd0; // turn off write_enabe so we can call values later
-				  x_coordinate = 8'd0;
-				  draw_counter = 8'd120;
-		        state = DRAW_MAP; //next, draw map on screen
+		        write_enable = 1'd0; // Turn off write_enable so we can read from RAM later
+				  x_coordinate = 8'd0; // Reset the x coordinate
+				  draw_counter = 8'd120; // Set drawing counter to max y for map drawing
+		        state = DRAW_MAP; // next, draw map on screen
 		    end
 		end
 		
+		/// DRAW_MAP: State that draws the map based on whatever map was initialized prior by reading from the RAM. ///
 		DRAW_MAP: begin
+			 // If current coordinate to draw is within the screen
 		    if (x_coordinate < 8'd160) begin
-				  colour = 3'b111;
-				  draw_counter = draw_counter - 1'b1;
+				  colour = 3'b111; // Set map colour to white
+				  draw_counter = draw_counter - 1'b1; // Decrement drawing counter
 				  x = x_coordinate;
-				  y = draw_counter[7:0];
+				  y = draw_counter[7:0]; // Use draw counter to decrement y coordinate
+				  // If draw counter reaches ground
 				  if (draw_counter < ground_height_at_x) begin
+				   // Increment x coordinate
 					x_coordinate = x_coordinate + 1'b1;
+					// Reset drawing counter
 					draw_counter= 8'd120;
 				  end
-
-				  
 		    end
 		    else begin
+				  // reset vars
 		        x_coordinate = 8'd0;
 				  draw_counter= 8'b00000000;
-		        state = INIT_TANK_1;
+		        state = INIT_TANK_1; // Initiate the first tank
 		    end
 		end
 		
+		/// INIT_TANK_1: State to initialize position of first tank, note there will be logic to determine starting positions if more maps added ///
     	INIT_TANK_1: begin // update to draw tank here
+			// Set positions
 			tank1_x = 8'd5;
-			tank1_y = 8'd75 - 8'd5;
+			tank1_y = 8'd75 - 8'd5; // Note the height of the tank is 5 pixels
 			draw_counter= 8'b00000000;
 			state = INIT_TANK_2;
 		end
 		
+		/// INIT_TANK_2: State to initialize position of first tank, note there will be logic to determine starting positions if more maps added ///
     	INIT_TANK_2: begin // update to draw tank here
 			tank2_x = 8'd150;
-			tank2_y = 8'd85 - 8'd5;
+			tank2_y = 8'd85 - 8'd5; // Note the height of the tank is 5 pixels
 			state = WAIT;
 		end
 
+		/// WAIT: Allows rate dividers to slow movemnt of tank movements and shell firing ///
 		WAIT: begin
-			if (frame && ~firing) state = ERASE_TANK_1;
-			else if (slow_frame) state = ERASE_SHELL;
+			if (frame && ~firing) state = ERASE_TANK_1; // If normal FPS and not firing, then begin next frame at normal speed on the tick
+			else if (slow_frame) state = ERASE_SHELL; // If slower FPS, then erase the currently firing shell on the tick
 		end
-				 
+		
+		/// ERASE_TANK_1: Erase the tank so it can be redrawn in next position ///
 		ERASE_TANK_1: begin
 			if (draw_counter < 9'b100000000) begin
-				if (draw_counter[3:0] <= 4'd5)
-				x = tank1_x + draw_counter[3:0];
-				if (draw_counter[8:4] <= 4'd5)
-				y = tank1_y + draw_counter[8:4] - 2'd2;
-				draw_counter = draw_counter + 1'b1;
+				if (draw_counter[3:0] <= 4'd5) // If within width of tank
+				x = tank1_x + draw_counter[3:0]; // Then erase that x
+				else x = 8'd0;
+				if (draw_counter[8:4] <= 4'd5) // If within height of tank
+				y = tank1_y + draw_counter[8:4] - 2'd2; // Then erase that y
+				else y = 8'd0;
+				draw_counter = draw_counter + 1'b1; // Increment drawing counter
 			end
 			else begin
-				draw_counter= 8'b00000000;
-				state = ERASE_TANK_2;
+				draw_counter= 8'b00000000; 
+				state = ERASE_TANK_2; // Erase the next tank
 			end
 		end
 		
+		/// ERASE_TANK_2: Erase the tank so it can be redrawn in next position ///
 		ERASE_TANK_2: begin
 			if (draw_counter < 9'b100000000) begin
-				if (draw_counter[3:0] <= 4'd5)
-				x = tank2_x + draw_counter[3:0] - 1'b1;
-				if (draw_counter[8:4] <= 4'd5)
-				y = tank2_y + draw_counter[8:4] - 2'd2;
-				draw_counter = draw_counter + 1'b1;
+				if (draw_counter[3:0] <= 4'd5) // If within width of tank 
+				x = tank2_x + draw_counter[3:0] - 1'b1;  // Then erase that x
+				else x = 8'd0;
+				if (draw_counter[8:4] <= 4'd5) // If within height of tank
+				y = tank2_y + draw_counter[8:4] - 2'd2; // Then erase that y
+				else y = 8'd0;
+				draw_counter = draw_counter + 1'b1; // Increment drawing counter
 			end
 			else begin
 				draw_counter= 8'b00000000;
@@ -821,60 +872,53 @@ module BattleForAltera(
 			end
 		end
 
+		/// UPDATE_TANK_1: Moves tank based on input and current position ///
 		UPDATE_TANK_1: begin
+			// If this player's turn
 			if (~pTurn) begin
-			   x_coordinate = tank1_x;
-				// tank falling after jump or just walked off cliff edge: while above ground, lower tank onto ground
-				//if (((tank1_y <= (ground_height_at_x - 3'd5)) || (tank1_y <= (right_ground_height_at_x- 3'd5)))) begin
-				//    tank1_y = tank1_y + 1'b1;
-				//end
-			    
-				// tank moves 1 pixel right if next ground is same level or lower
+			   x_coordinate = tank1_x; // Set x_coordinate to left side of tank
+				// If moving right
 				if (~KEY[1] && tank1_x < 8'd154) begin
-				   x_coordinate = x_coordinate + 8'd8;
-					tank1_x = tank1_x + 1'd1; // move tank right if no ground
+				   x_coordinate = x_coordinate + 8'd8; // Update x_coordinate to far right of tank plus one
+					tank1_x = tank1_x + 1'd1; // move tank right
+					// If tank needs to 'teleport' up to the right
 					if (tank1_y != (ground_height_at_x - 3'd5)) begin tank1_y = ((ground_height_at_x - 3'd5)); tank1_x = tank1_x + 8'd8; end
 				end
-				// tank moves 1 pixel left if next ground is same level or lower
+				// If moving left
 				if (~KEY[2] && tank1_x > 8'd0) begin
-				   x_coordinate = x_coordinate - 2'd2;
-					tank1_x = tank1_x - 1'd1; // move tank left if no ground
+				   x_coordinate = x_coordinate - 2'd2; // Update x_coordinate to far left of tank minus one
+					tank1_x = tank1_x - 1'd1; // move tank left
+					// If tank needs to 'teleport' up to the left
 					if (tank1_y != (ground_height_at_x - 3'd5)) begin tank1_y = ((ground_height_at_x - 3'd5)); tank1_x = tank1_x - 8'd5; end
 				end
-	
-				//if (tank1_y != (ground_height_at_x - 3'd5)) tank1_y = ((ground_height_at_x - 3'd5));
 			end
 			
-			state = UPDATE_TANK_2; // now update tank's position on the screen
+			state = UPDATE_TANK_2; // now update other tank's position on the screen
 		end
 		
+		/// UPDATE_TANK_2: Moves tank based on input and current position ///
 		UPDATE_TANK_2: begin
 			if (pTurn) begin
-				x_coordinate = tank2_x;
-				// tank falling after jump or just walked off cliff edge: while above ground, lower tank onto ground
-				//if (((tank2_y <= (ground_height_at_x- 3'd5)) || (tank2_y <= (right_ground_height_at_x- 3'd5)))) begin
-				//    tank2_y = tank2_y + 1'b1;
-				//end
-			    
-				// tank moves 1 pixel right if next ground is same level or lower
+				x_coordinate = tank2_x; // Set x_coordinate to left side of tank
+				// If moving right
 				if (~KEY[1] && tank2_x < 8'd154) begin
-				    x_coordinate = x_coordinate + 8'd8;
-					tank2_x = tank2_x + 1'd1; // move tank right if no ground
+				    x_coordinate = x_coordinate + 8'd8; // Update x_coordinate to far right of tank plus one
+					tank2_x = tank2_x + 1'd1; // move tank right
+					// If tank needs to 'teleport' up to the right
 					if (tank2_y != (ground_height_at_x - 3'd5)) begin tank2_y = ((ground_height_at_x - 3'd5)); tank2_x = tank2_x + 8'd7; end
 				end
 				// tank moves 1 pixel left if next ground is same level or lower
 				if (~KEY[2] && tank2_x > 8'd0) begin
-				    x_coordinate = x_coordinate - 2'd3;
-					tank2_x = tank2_x - 1'd1; // move tank left if no ground
+				    x_coordinate = x_coordinate - 2'd3; // Update x_coordinate to far left of tank minus one
+					tank2_x = tank2_x - 1'd1; // move tank left
+					// If tank needs to 'teleport' up to the left
 					if (tank2_y != (ground_height_at_x - 3'd5)) begin tank2_y = ((ground_height_at_x - 3'd5)); tank2_x = tank2_x - 8'd6; end
 				end
-	
-				//if (tank2_y != (ground_height_at_x - 3'd5)) tank2_y = ((ground_height_at_x - 3'd5));
 			end
-			
-			state = DRAW_TANK_1;
+			state = DRAW_TANK_1; // Begin drawing the updated tanks
 		end
-
+		
+		/// Draw the first tank ///
 		DRAW_TANK_1: begin
 		if (draw_counter < 7'b1000000) begin
 			if (draw_counter[2:0] < 3'b101)
@@ -893,14 +937,19 @@ module BattleForAltera(
 					y = tank1_y - 1'b1;
 					colour = 3'b010;
 				end
-				6'b111110: begin //Draw (moved) shooter block
+				6'b111110: begin //Draw (moved) shooter block based on angle from tank barrel wire
 					if (tank_1_barrel == 2'b00) begin
 						x = tank1_x + 3'b101;
 						y = tank1_y - 1'b1;
 						colour = 3'b010;
 					end
-					else if (tank_1_barrel == 2'b01 | tank_1_barrel == 2'b10) begin
+					else if (tank_1_barrel == 2'b01) begin
 						x = tank1_x + 3'b101;
+						y = tank1_y - 2'b10;
+						colour = 3'b010;
+					end
+					else if (tank_1_barrel == 2'b10) begin
+						x = tank1_x + 3'b011;
 						y = tank1_y - 2'b10;
 						colour = 3'b010;
 					end
@@ -910,6 +959,7 @@ module BattleForAltera(
 						colour = 3'b010;
 					end
 				end
+				// Specific pixel coloration (counting from top left to the right)
 				6'b000001: begin
 					colour = 3'b000;
 				end
@@ -923,30 +973,29 @@ module BattleForAltera(
 					colour = 3'b000;
 				end
 				6'b011001: begin
-					colour = 3'b101;
+					colour = 3'b001;
 				end
 				6'b011011: begin
-					colour = 3'b101;
+					colour = 3'b001;
 				end
 				6'b011101: begin
-					colour = 3'b101;
+					colour = 3'b001;
 				end
 				6'b011101: begin
-					colour = 3'b101;
+					colour = 3'b001;
 				end
 				default: begin
 					colour = 3'b010;
 				end
-				
 			endcase
-			
 			end
 			else begin
 				draw_counter= 8'b00000000;
-				state = DRAW_TANK_2;
+				state = DRAW_TANK_2; // Draw the next tank
 			end
 		end
 		
+		/// Draw the second tank ///
 		DRAW_TANK_2: begin
 		if (draw_counter < 7'b1000000) begin
 			if (draw_counter[2:0] < 3'b101)
@@ -965,14 +1014,19 @@ module BattleForAltera(
 					y = tank2_y - 1'b1;
 					colour = 3'b010;
 				end
-				6'b111110: begin //Draw (moved) shooter block
+				6'b111110: begin //Draw (moved) shooter block based on angle from tank barrel wire
 					if (tank_2_barrel == 2'b00) begin
 						x = tank2_x - 1'b1;
 						y = tank2_y - 1'b1;
 						colour = 3'b010;
 					end
-					else if (tank_2_barrel == 2'b01 | tank_2_barrel == 2'b10) begin
+					else if (tank_2_barrel == 2'b01) begin
 						x = tank2_x - 1'b1;
+						y = tank2_y - 2'b10;
+						colour = 3'b010;
+					end
+					else if (tank_2_barrel == 2'b10) begin
+						x = tank2_x + 1'b1;
 						y = tank2_y - 2'b10;
 						colour = 3'b010;
 					end
@@ -982,6 +1036,7 @@ module BattleForAltera(
 						colour = 3'b010;
 					end
 				end
+				// Specific pixel coloration (counting from top left to the right)
 				6'b000001: begin
 					colour = 3'b000;
 				end
@@ -995,215 +1050,215 @@ module BattleForAltera(
 					colour = 3'b000;
 				end
 				6'b011001: begin
-					colour = 3'b101;
+					colour = 3'b100;
 				end
 				6'b011011: begin
-					colour = 3'b101;
+					colour = 3'b100;
 				end
 				6'b011101: begin
-					colour = 3'b101;
+					colour = 3'b100;
 				end
 				6'b011101: begin
-					colour = 3'b101;
+					colour = 3'b100;
 				end
 				default: begin
 					colour = 3'b010;
 				end
-				
 			endcase
-			
 			end
 			else begin
 				draw_counter= 8'b00000000;
-				state = SHELL_FIRED;
+				state = SHELL_FIRED; //
 			end
 		end
 		
+		/// SHELL_FIRED: Fire the shell if neccesary and determine angles ///
 		SHELL_FIRED: begin
-			case(SW[5:0])
+			// Based on the angle, determine the binary HEX angle and tank barrel position based on player turn
+			case(SW[5:0]) // (Reccomended to collapse here)
 				6'b000000: begin
 					ang_HEX = 12'b1010_1010_0000;
 					if (~pTurn) tank_1_barrel = 2'b00;
-					else tank_2_barrel = 2'b11;
+					else tank_2_barrel = 2'b10;
 					end
 				6'b000001: begin
 					ang_HEX = 12'b1010_1010_0101;
 					if (~pTurn) tank_1_barrel = 2'b00;
-					else tank_2_barrel = 2'b11;
+					else tank_2_barrel = 2'b10;
 					end
 				6'b000010: begin
 					ang_HEX = 12'b1010_0001_0000;
 					if (~pTurn) tank_1_barrel = 2'b00;
-					else tank_2_barrel = 2'b11;
+					else tank_2_barrel = 2'b10;
 					end
 				6'b000011: begin
 					ang_HEX = 12'b1010_0001_0101;
 					if (~pTurn) tank_1_barrel = 2'b00;
-					else tank_2_barrel = 2'b11;
+					else tank_2_barrel = 2'b10;
 					end
 				6'b000100: begin
 					ang_HEX = 12'b1010_0010_0000;
 					if (~pTurn) tank_1_barrel = 2'b00;
-					else tank_2_barrel = 2'b11;
+					else tank_2_barrel = 2'b10;
 					end
 				6'b000101: begin
 					ang_HEX = 12'b1010_0010_0101;
 					if (~pTurn) tank_1_barrel = 2'b00;
-					else tank_2_barrel = 2'b11;
+					else tank_2_barrel = 2'b10;
 					end
 				6'b000110: begin
 					ang_HEX = 12'b1010_0011_0000;
 					if (~pTurn) tank_1_barrel = 2'b01;
-					else tank_2_barrel = 2'b00;
+					else tank_2_barrel = 2'b10;
 					end
 				6'b000111: begin
 					ang_HEX = 12'b1010_0011_0101;
 					if (~pTurn) tank_1_barrel = 2'b01;
-					else tank_2_barrel = 2'b11;
+					else tank_2_barrel = 2'b10;
 					end
 				6'b001000: begin
 					ang_HEX = 12'b1010_0100_0000;
 					if (~pTurn) tank_1_barrel = 2'b01;
-					else tank_2_barrel = 2'b11;
+					else tank_2_barrel = 2'b10;
 					end
 				6'b001001: begin
 					ang_HEX = 12'b1010_0100_0101;
 					if (~pTurn) tank_1_barrel = 2'b01;
-					else tank_2_barrel = 2'b11;
+					else tank_2_barrel = 2'b10;
 					end
 				6'b001010: begin
 					ang_HEX = 12'b1010_0101_0000;
 					if (~pTurn) tank_1_barrel = 2'b01;
-					else tank_2_barrel = 2'b11;
+					else tank_2_barrel = 2'b10;
 					end
 				6'b001011: begin
 					ang_HEX = 12'b1010_0101_0101;
 					if (~pTurn) tank_1_barrel = 2'b01;
-					else tank_2_barrel = 2'b11;
+					else tank_2_barrel = 2'b10;
 					end
 				6'b001100: begin
 					ang_HEX = 12'b1010_0110_0000;
 					if (~pTurn) tank_1_barrel = 2'b01;
-					else tank_2_barrel = 2'b11;
+					else tank_2_barrel = 2'b10;
 					end
 				6'b001101: begin
 					ang_HEX = 12'b1010_0110_0101;
 					if (~pTurn) tank_1_barrel = 2'b01;
-					else tank_2_barrel = 2'b11;
+					else tank_2_barrel = 2'b10;
 					end
 				6'b001110: begin
 					ang_HEX = 12'b1010_0111_0000;
 					if (~pTurn) tank_1_barrel = 2'b01;
-					else tank_2_barrel = 2'b11;
+					else tank_2_barrel = 2'b10;
 					end
 				6'b001111: begin
 					ang_HEX = 12'b1010_0111_0101;
 					if (~pTurn) tank_1_barrel = 2'b01;
-					else tank_2_barrel = 2'b11;
+					else tank_2_barrel = 2'b10;
 					end
 				6'b010000: begin
 					ang_HEX = 12'b1010_1000_0000;
 					if (~pTurn) tank_1_barrel = 2'b01;
-					else tank_2_barrel = 2'b11;
+					else tank_2_barrel = 2'b10;
 					end
 				6'b010001: begin
 					ang_HEX = 12'b1010_1000_0101;
 					if (~pTurn) tank_1_barrel = 2'b01;
-					else tank_2_barrel = 2'b11;
+					else tank_2_barrel = 2'b10;
 					end
-				6'b010010: begin
+				6'b010010: begin //90 degrees
 					ang_HEX = 12'b1010_1001_0000;
 					if (~pTurn) tank_1_barrel = 2'b11;
 					else tank_2_barrel = 2'b11;
 					end
 				6'b010011: begin
 					ang_HEX = 12'b1010_1001_0101;
-					if (~pTurn) tank_1_barrel = 2'b11;
+					if (~pTurn) tank_1_barrel = 2'b10;
 					else tank_2_barrel = 2'b01;
 					end
 				6'b010100: begin
 					ang_HEX = 12'b0001_0000_0000;
-					if (~pTurn) tank_1_barrel = 2'b11;
+					if (~pTurn) tank_1_barrel = 2'b10;
 					else tank_2_barrel = 2'b01;
 					end
 				6'b010101: begin
 					ang_HEX = 12'b0001_0000_0101;
-					if (~pTurn) tank_1_barrel = 2'b11;
+					if (~pTurn) tank_1_barrel = 2'b10;
 					else tank_2_barrel = 2'b01;
 					end
 				6'b010110: begin
 					ang_HEX = 12'b0001_0001_0000;
-					if (~pTurn) tank_1_barrel = 2'b11;
+					if (~pTurn) tank_1_barrel = 2'b10;
 					else tank_2_barrel = 2'b01;
 					end
 				6'b010111: begin
 					ang_HEX = 12'b0001_0001_0101;
-					if (~pTurn) tank_1_barrel = 2'b11;
+					if (~pTurn) tank_1_barrel = 2'b10;
 					else tank_2_barrel = 2'b01;
 					end
 				6'b011000: begin
 					ang_HEX = 12'b0001_0010_0000;
-					if (~pTurn) tank_1_barrel = 2'b11;
+					if (~pTurn) tank_1_barrel = 2'b10;
 					else tank_2_barrel = 2'b01;
 					end
 				6'b011001: begin
 					ang_HEX = 12'b0001_0010_0101;
-					if (~pTurn) tank_1_barrel = 2'b11;
+					if (~pTurn) tank_1_barrel = 2'b10;
 					else tank_2_barrel = 2'b01;
 					end
 				6'b011010: begin
 					ang_HEX = 12'b0001_0011_0000;
-					if (~pTurn) tank_1_barrel = 2'b11;
+					if (~pTurn) tank_1_barrel = 2'b10;
 					else tank_2_barrel = 2'b01;
 					end
 				6'b011011: begin
 					ang_HEX = 12'b0001_0011_0101;
-					if (~pTurn) tank_1_barrel = 2'b11;
+					if (~pTurn) tank_1_barrel = 2'b10;
 					else tank_2_barrel = 2'b01;
 					end
 				6'b011100: begin
 					ang_HEX = 12'b0001_0100_0000;
-					if (~pTurn) tank_1_barrel = 2'b11;
+					if (~pTurn) tank_1_barrel = 2'b10;
 					else tank_2_barrel = 2'b01;
 					end
 				6'b011101: begin
 					ang_HEX = 12'b0001_0100_0101;
-					if (~pTurn) tank_1_barrel = 2'b11;
+					if (~pTurn) tank_1_barrel = 2'b10;
 					else tank_2_barrel = 2'b01;
 					end
 				6'b011110: begin
 					ang_HEX = 12'b0001_0101_0000;
-					if (~pTurn) tank_1_barrel = 2'b11;
+					if (~pTurn) tank_1_barrel = 2'b10;
 					else tank_2_barrel = 2'b00;
 					end
 				6'b011111: begin
 					ang_HEX = 12'b0001_0101_0101;
-					if (~pTurn) tank_1_barrel = 2'b11;
+					if (~pTurn) tank_1_barrel = 2'b10;
 					else tank_2_barrel = 2'b00;
 					end			
 				6'b100000: begin
 					ang_HEX = 12'b0001_0110_0000;
-					if (~pTurn) tank_1_barrel = 2'b11;
+					if (~pTurn) tank_1_barrel = 2'b10;
 					else tank_2_barrel = 2'b00;
 					end
 				6'b100001: begin
 					ang_HEX = 12'b0001_0110_0101;
-					if (~pTurn) tank_1_barrel = 2'b11;
+					if (~pTurn) tank_1_barrel = 2'b10;
 					else tank_2_barrel = 2'b00;
 					end
 				6'b100010: begin
 					ang_HEX = 12'b0001_0111_0000;
-					if (~pTurn) tank_1_barrel = 2'b11;
+					if (~pTurn) tank_1_barrel = 2'b10;
 					else tank_2_barrel = 2'b00;
 					end
 				6'b100011: begin
 					ang_HEX = 12'b0001_0111_0101;
-					if (~pTurn) tank_1_barrel = 2'b11;
+					if (~pTurn) tank_1_barrel = 2'b10;
 					else tank_2_barrel = 2'b00;
 					end
 				6'b100100: begin
 					ang_HEX = 12'b0001_1000_0000;
-					if (~pTurn) tank_1_barrel = 2'b11;
+					if (~pTurn) tank_1_barrel = 2'b10;
 					else tank_2_barrel = 2'b00;
 					end
 				default: begin
@@ -1212,9 +1267,11 @@ module BattleForAltera(
 					else tank_2_barrel = 2'b11;
 					end
 			endcase
+			// If firing
 			if(~KEY[0]) begin
 				angle = SW[5:0];
-					case (angle) // Please check this is what is controlling the case - MAX
+					// Set parabola array values based on angle
+					case (angle) // (Reccomended to collapse here)
 						6'b000000, 6'b100100: begin
 														para[0] = a0[0];
 														para[1] = a0[1];
@@ -1809,33 +1866,36 @@ module BattleForAltera(
 									end
 					endcase
 
-				firing = 1'd1;
-				i = 1'b0;
+				firing = 1'd1; // Set var for future firing checks
+				i = 1'b0; // Set incrementer to 0
+				// Set direction and check for special cases
 				if(angle > 18) dir = -1;
 				else dir = 1;
 				if(((20 >= angle) && (angle >= 16)) || (angle > 36)) spec = 1'b1;
 				else spec = 1'b0;
-				state = UPDATE_SHELL;
+				state = UPDATE_SHELL; // Update the shell that is firing
 			end
-			else state = ERASE_SHELL;
+			else state = ERASE_SHELL; // Erase the shell that is not firing or no longer firing
 			
 		end
 
+		/// ERASE_SHELL: Erase the shell ///
 		ERASE_SHELL: begin
 			colour = 3'b000;
 			if(firing) begin
 			x = proj_x;
 			y = proj_y;
 			end
-			else begin
+			else begin // If not firing, erase at initial firing position instead
 			x = shell_x;
 			y = shell_y;
 			end
-			
-			state = UPDATE_SHELL;
+			state = UPDATE_SHELL; // Update the shell position
 		end
 
-		UPDATE_SHELL: begin // update this to just shoot the projectile
+		/// Update the shell position ///
+		UPDATE_SHELL: begin
+			// Get next position of shell and update if firing
 			if (firing) begin
 				if(((spec) && (i == 14)) || ((~spec) && (i == 32))) state = MISS;
 				if(spec) begin
@@ -1846,36 +1906,42 @@ module BattleForAltera(
 					proj_x = shell_x + 5*dir*(i+1);
 					proj_y = shell_y + para[i];
 				end
-				state = CHECK_SHELL;
+				state = CHECK_SHELL; // Check the updated shell position
 			end
+			// Ensure shell stays in initial firing position relative to tank when not firing
 			else begin
 				if (~pTurn) begin
-					shell_x = tank1_x + 2'd5; // update shell position to tank position
-					shell_y = tank1_y - 2'd2;
+					shell_x = tank1_x + 2'd4; // update shell position to tank position
+					shell_y = tank1_y - 1'd1;
 				end
 				else begin
-					shell_x = tank2_x + 2'd5; // update shell position to tank position
-					shell_y = tank2_y - 2'd2;
+					shell_x = tank2_x + 3'd4; // update shell position to tank position
+					shell_y = tank2_y - 1'd1;
 				end
-				
-				state = WAIT;
+				state = WAIT; // Wait for shell to continue firing or finish firing after updating the shell
 			end
 		end
 
+		/// CHECK_SHELL: Determine if updated shell position ///
 		CHECK_SHELL: begin
+			// If out of bounds
 			if((proj_x < 0) || (proj_x > 160) || (proj_y > 125)) state = MISS;
-			else x_coordinate = proj_x;
+			else x_coordinate = proj_x; // Set x_coordinate for ground RAM checks
+			// If out of bounds
 			if((proj_x < 0) || (proj_x > 160) || (proj_y > 125)) state = MISS;
 			else if(proj_y < 0) begin
-				i = i + 1;
-				state = WAIT;
+				i = i + 1; // Increment index
+				state = WAIT; // Wait for next position
 			end
-			else if((tank1_x <= proj_x) && (proj_x <= tank1_x + 4) && (proj_y >= tank1_y)) state = HIT_T1;
-			else if((tank2_x <= proj_x) && (proj_x <= tank2_x + 4) && (proj_y >= tank2_y)) state = HIT_T2;
-			else if(proj_y > ground_height_at_x) state = MISS;
+			else if((tank1_x <= proj_x) && (proj_x <= tank1_x + 4) && (proj_y >= tank1_y)) state = HIT_T1; // Hit tank 1
+			else if((tank2_x <= proj_x) && (proj_x <= tank2_x + 4) && (proj_y >= tank2_y)) state = HIT_T2; // Hit tank 2
+			else if(proj_y >= ground_height_at_x) begin // If in the ground
+				state = MISS;
+			end
 			else state = DRAW_SHELL;
 		end
 
+		/// DRAW_SHELL: Draw the updated shell position ///
 		DRAW_SHELL: begin
 			colour = 3'b111;
 			if(~firing) begin
@@ -1886,32 +1952,36 @@ module BattleForAltera(
 			x = proj_x;
 			y = proj_y;
 			end
-			i = i + 1;
+			i = i + 1; // Increment index
 			state = WAIT;
 		end
 
+		/// HIT_T1: When player 1 is hit ///
 		HIT_T1: begin
 			p1_H = p1_H - 1; 
 			if(p1_H == 0) state = DEAD1;
 			else state = MISS;
 		end 
 
+		/// HIT_T1: When player 2 is hit ///
 		HIT_T2: begin
 			p2_H = p2_H - 1;
 			if(p2_H == 0) state = DEAD2;
 			else state = MISS;
 		end
 
+		/// Switch turns on a miss ///
 		MISS: begin
 			// since there is no more manual turn switch, everything happens here
-			jump_capacity = 5'd30; // reset them here temporarily
 			fuel = 5'd30;
 			firing = 1'b0;
 			pTurn = ~pTurn;
 			state = WAIT;
 		end
 
+		/// When player 2 wins ///
 		DEAD1: begin
+		// Fill the screen red
 			if (draw_counter < 17'b10000000000000000) begin
 				colour = 3'b100;
 				x = draw_counter[7:0];
@@ -1920,7 +1990,9 @@ module BattleForAltera(
 			end
 		end
 		
+		/// When player 1 wins ///
 		DEAD2: begin
+			// Fill the screen blue
 			if (draw_counter < 17'b10000000000000000) begin
 				colour = 3'b001;
 				x = draw_counter[7:0];
@@ -1928,70 +2000,6 @@ module BattleForAltera(
 				draw_counter = draw_counter + 1'b1;
 			end
 		end
-
-
 		endcase // end cases
-		
 	end // end always
-endmodule
-
-module rateDivider (input clock, output clk);
-reg [19:0] frame_counter;
-reg frame;
-	always@(posedge clock)
-    begin
-        if (frame_counter == 20'b00000000000000000000) begin
-		  frame_counter = 20'b11001011011100110100;
-		  frame = 1'b1;
-		  end
-        else begin
-			frame_counter = frame_counter - 1'b1;
-			frame = 1'b0;
-		  end
-    end
-	 assign clk = frame;
-endmodule
-
-module slowRateDivider (input clock, output clk);
-reg [23:0] slow_frame_counter;
-reg slow_frame;
-	always@(posedge clock)
-    begin
-        if (slow_frame_counter == 24'b00000000000000000000) begin
-		  slow_frame_counter = 24'b100110001001011010000000;
-		  slow_frame = 1'b1;
-		  end
-        else begin
-			slow_frame_counter = slow_frame_counter - 1'b1;
-			slow_frame = 1'b0;
-		  end
-    end
-	 assign clk = slow_frame;
-endmodule
-
-module hex_display(IN, OUT);
-    input [3:0] IN;
-	 output reg [7:0] OUT;
-	 
-	 always @(*)
-	 begin
-		case(IN[3:0])
-			4'b0000: OUT = 7'b1000000;
-			4'b0001: OUT = 7'b1111001;
-			4'b0010: OUT = 7'b0100100;
-			4'b0011: OUT = 7'b0110000;
-			4'b0100: OUT = 7'b0011001;
-			4'b0101: OUT = 7'b0010010;
-			4'b0110: OUT = 7'b0000010;
-			4'b0111: OUT = 7'b1111000;
-			4'b1000: OUT = 7'b0000000;
-			4'b1001: OUT = 7'b0011000;
-			4'b1010: OUT = 7'b1111111;
-			4'b1011: OUT = 7'b0000110;
-			4'b1100: OUT = 7'b0101111;
-			
-			default: OUT = 7'b1111111;
-		endcase
-
-	end
 endmodule
